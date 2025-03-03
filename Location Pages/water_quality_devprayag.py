@@ -38,7 +38,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # Updated Locations dictionary
 LOCATIONS = {
     'ALAKNANDA A/C WITH BHAGIRATHI AT DEVPRAYAG': {
-        'file_path': r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\New Dataset\Bijnor.csv",
+        'file_path': r"Datasets\Bijnor.csv",
         'lat': 30.140504,
         'lon': 78.597358
     }  
@@ -388,15 +388,15 @@ def load_model_for_parameter(parameter):
     Load the pre-trained model for a specific water quality parameter.
     """
     parameter_model_paths = {
-        "Biochemical Oxygen Demand": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Biochemical_Oxygen_Demand_water_quality_lstm_model.keras",
-        "Dissolved Oxygen": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Dissolved_Oxygen_water_quality_lstm_model.keras",
-        "pH": r"C:\Users\New User\OneDrive\Desktop\Ganga_Project\models\pH_water_quality_lstm_model.keras",
-        "Turbidity": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Turbidity_water_quality_lstm_model.keras",
-        "Nitrate": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Nitrate_water_quality_lstm_model.keras",
-        "Fecal Coliform": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Fecal_Coliform_water_quality_lstm_model.keras",
-        "Fecal Streptococci": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Fecal_Streptococci_water_quality_lstm_model.keras",
-        "Total Coliform": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Total_Coliform_water_quality_lstm_model.keras",
-        "Conductivity": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\models\Conductivity_water_quality_lstm_model.keras"
+        "Biochemical Oxygen Demand": r"models\Biochemical_Oxygen_Demand_water_quality_lstm_model.keras",
+        "Dissolved Oxygen": r"models\Dissolved_Oxygen_water_quality_lstm_model.keras",
+        "pH": r"models\pH_water_quality_lstm_model.keras",
+        "Turbidity": r"models\Turbidity_water_quality_lstm_model.keras",
+        "Nitrate": r"models\Nitrate_water_quality_lstm_model.keras",
+        "Fecal Coliform": r"models\Fecal_Coliform_water_quality_lstm_model.keras",
+        "Fecal Streptococci": r"models\Fecal_Streptococci_water_quality_lstm_model.keras",
+        "Total Coliform": r"models\Total_Coliform_water_quality_lstm_model.keras",
+        "Conductivity": r"models\Conductivity_water_quality_lstm_model.keras"
     }
     model_path = parameter_model_paths.get(parameter)
     
