@@ -339,7 +339,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgements
 
-*We extend our sincere gratitude to:*
+*I extend our sincere gratitude to:*
 
 Ministry of Jal Shakti, Government of India • Central Water Commission • National Mission for Clean Ganga • GemStat • MeteoStat
 
