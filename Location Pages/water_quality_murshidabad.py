@@ -35,7 +35,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # Updated Locations dictionary
 LOCATIONS = {
     'MURSHIDABAD, WEST BENGAL': {
-        'file_path': r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\New Dataset\Murshidabad.csv",
+        'file_path': r"Datasets\Murshidabad.csv",
         'lat': 24.0988,
         'lon': 88.2679
     }  
