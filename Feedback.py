@@ -5,10 +5,18 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import re
 import sqlite3
+import os
 
-# Gemini API Configuration (Replace with your actual API key)
-GEMINI_API_KEY = "AIzaSyD9NDUbjOJMIRwl0r01iJUt0TULSZb4U9k"
-genai.configure(api_key=GEMINI_API_KEY)
+# Read the API key from the system environment (GitHub Secrets)
+api_key = os.environ.get("GEMINI_API_KEY")
+
+# Check if the API key is available
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found. Make sure it is set in your environment variables.")
+
+# Configure Gemini API
+genai.configure(api_key=api_key)
+gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Subjects related to Ganga health
 ALLOWED_SUBJECTS = [
