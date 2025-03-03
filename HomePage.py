@@ -215,39 +215,6 @@ def render_home_page():
     with col2:
         st.markdown("""
             <div class="button-card">
-                <span class="emoji-icon">🔬</span>
-                <h3 class="card-title">Scenario Modeling</h3>
-                <p class="card-description">
-                    Complex environmental modeling to predict future river conditions and impacts.
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if st.button('Run Scenario Model', key='scenario-btn'):
-            st.session_state.page = 'scenario_modeling'
-
-    # Create another row of two columns
-    col3, col4 = st.columns(2)
-
-    # Feature 3: Crop Application
-    with col3:
-        st.markdown("""
-            <div class="button-card">
-                <span class="emoji-icon">🌱</span>
-                <h3 class="card-title">Environmental Analysis</h3>
-                <p class="card-description">
-                    See complete environmental analysis and irrigation recommendation for River Ganga.
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if st.button('See Environmental Analysis', key='crop-btn'):
-            st.session_state.page = 'crop_application'
-
-    # Feature 4: Give Feedback
-    with col4:
-        st.markdown("""
-            <div class="button-card">
                 <span class="emoji-icon">💬</span>
                 <h3 class="card-title">Give Feedback</h3>
                 <p class="card-description">
@@ -294,18 +261,6 @@ else:
 
         if st.button('Back to Home'):
             st.session_state.page = 'home'
-
-    elif st.session_state.page == 'scenario_modeling':
-        if st.button('Back to Home'):
-            st.session_state.page = 'home'
-
-        exec(open("scenario_modeling_module.py", encoding="utf-8").read())
-
-    elif st.session_state.page == 'crop_application':
-        if st.button('Back to Home'):
-            st.session_state.page = 'home'
-
-        exec(open(r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Agriculture.py", encoding="utf-8").read())
 
     elif st.session_state.page == 'feedback':
         if st.button('Back to Home'):
