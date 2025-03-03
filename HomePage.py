@@ -235,18 +235,18 @@ else:
         
         # Dictionary mapping locations to their specific file paths
         location_paths = {
-            "Rudraprayag": r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\Ganga_Project\Location Pages\water_quality_rudraprayag.py",
-            "Bhagalpur": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_bhagalpur.py",
-            "Devprayag": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_devprayag.py",
-            "Kannauj": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_kannauj.py",
-            "Kanpur": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_kanpur.py",
-            "Ghazipur": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_ghazipur.py",
-            "Patna": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_patna.py",
-            "Prayagraj": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_prayagraj.py",
-            "Naini": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_naini.py",
-            "Parganas": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_parganas.py",
-            "Murshidabad": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_murshidabad.py",
-            "Bijnor": r"C:/Users/New User/OneDrive/Desktop/SIH1694_19975_AquaVisionAI/Ganga_Project/Location Pages/water_quality_bijnor.py"
+            "Rudraprayag": r"Location Pages\water_quality_rudraprayag.py",
+            "Bhagalpur": r"Location Pages/water_quality_bhagalpur.py",
+            "Devprayag": r"Location Pages/water_quality_devprayag.py",
+            "Kannauj": r"Location Pages/water_quality_kannauj.py",
+            "Kanpur": r"Location Pages/water_quality_kanpur.py",
+            "Ghazipur": r"Location Pages/water_quality_ghazipur.py",
+            "Patna": r"Location Pages/water_quality_patna.py",
+            "Prayagraj": r"Ganga_Project/Location Pages/water_quality_prayagraj.py",
+            "Naini": r"Location Pages/water_quality_naini.py",
+            "Parganas": r"Location Pages/water_quality_parganas.py",
+            "Murshidabad": r"Location Pages/water_quality_murshidabad.py",
+            "Bijnor": r"Location Pages/water_quality_bijnor.py"
         }
 
         locations = list(location_paths.keys())
@@ -266,4 +266,4 @@ else:
         if st.button('Back to Home'):
             st.session_state.page = 'home'
 
-        exec(open(r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\feedback.py", encoding="utf-8").read())
+        exec(open(r"feedback.py", encoding="utf-8").read())
