@@ -17,11 +17,28 @@ from matplotlib.patches import Arc
 import base64
 import io
 from PIL import Image, ImageDraw, ImageFont
+import os
 
-#st.set_page_config(layout="wide")
+import os
+import google.generativeai as genai
 
-# Configuration
-GOOGLE_MAPS_API_KEY = 'AIzaSyCAEXog7qWBnXnwlO6wT844mhgaeVAkP00'
+# Load API keys from environment variables
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
+WEATHER_API_KEY = os.environ.get("WEATHER_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+# Check if all required keys are available
+if not GOOGLE_MAPS_API_KEY:
+    raise ValueError("GOOGLE_MAPS_API_KEY not found. Make sure it is set in your environment variables.")
+if not WEATHER_API_KEY:
+    raise ValueError("WEATHER_API_KEY not found. Make sure it is set in your environment variables.")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found. Make sure it is set in your environment variables.")
+
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Updated Locations dictionary
 LOCATIONS = {
     'BIJNOR (U.P.)': {
         'file_path': r"C:\Users\New User\OneDrive\Desktop\SIH1694_19975_AquaVisionAI\New Dataset\Bijnor.csv",
@@ -30,7 +47,6 @@ LOCATIONS = {
     }  
 }
 
-WEATHER_API_KEY = '5f25b8309c72e6259b8b47115ea3f47c'
 
 def get_time_based_greeting():
     """Determine greeting based on current time with enhanced details."""
@@ -390,9 +406,6 @@ def create_altair_historical_plot(df, parameter):
     ).interactive()
     
     return chart
-
-GEMINI_API_KEY = 'AIzaSyD9NDUbjOJMIRwl0r01iJUt0TULSZb4U9k'  # Replace with your actual API key
-genai.configure(api_key=GEMINI_API_KEY)
 
 def generate_gemini_water_quality_report(parameter, forecasted_values, forecast_dates, historical_data):
     """
