@@ -3,7 +3,6 @@ import os
 import folium
 from streamlit_folium import folium_static
 
-
 # Locations with their coordinates (latitude, longitude)
 LOCATIONS = {
     "Rudraprayag": (30.2833, 79.0167),
