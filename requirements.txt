@@ -11,7 +11,7 @@ streamlit-folium
 google-generativeai
 protobuf
 pip
-pygments==2.19.1
-mdurl==0.1.2
-markdown-it-py==3.0.0
-rich==13.9.4
+pygments
+mdurl
+markdown-it-py
+rich
