@@ -10,6 +10,8 @@ import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime, timedelta
 import warnings
+import tempfile
+import os
 warnings.filterwarnings('ignore')
 
 # Page configuration
@@ -46,69 +48,56 @@ st.markdown("""
 # Title and header
 st.markdown('<h1 class="main-header">🌊 AquaVision AI - Bhagalpur Water Quality Forecasting</h1>', unsafe_allow_html=True)
 
-@st.cache_data
-def load_data():
+def load_csv_data(uploaded_file):
     """Load and preprocess the water quality data"""
-    # File uploader for the dataset
-    uploaded_file = st.file_uploader(
-        "Upload your Bhagalpur.csv file", 
-        type=['csv'],
-        help="Please upload your Bhagalpur water quality dataset"
-    )
-    
-    if uploaded_file is not None:
-        try:
-            # Load the uploaded dataset
-            df = pd.read_csv(uploaded_file, parse_dates=['Date'], dayfirst=True)
-            df = df.sort_values('Date').reset_index(drop=True)
-            
-            # Drop Quality column if present
-            if 'Quality' in df.columns:
-                df = df.drop(columns=['Quality'])
-            
-            # Handle missing values
-            df = df.interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
-            
-            st.success(f"✅ Dataset loaded successfully! {len(df)} records found.")
-            st.info(f"📅 Date range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
-            
-            return df
-        except Exception as e:
-            st.error(f"Error loading dataset: {str(e)}")
-            return None
-    else:
-        st.error("❌ Please upload your Bhagalpur.csv file to proceed.")
-        st.stop()
+    try:
+        # Load the uploaded dataset
+        df = pd.read_csv(uploaded_file, parse_dates=['Date'], dayfirst=True)
+        df = df.sort_values('Date').reset_index(drop=True)
+        
+        # Drop Quality column if present
+        if 'Quality' in df.columns:
+            df = df.drop(columns=['Quality'])
+        
+        # Handle missing values
+        df = df.interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading dataset: {str(e)}")
         return None
 
-def generate_sample_data():
-    """This function is removed - only real data will be used"""
-    pass
-
-@st.cache_resource
-def load_model():
-    """Load the trained model"""
-    model_file = st.file_uploader(
-        "Upload your trained model file", 
-        type=['h5'],
-        help="Upload your bhagalpur_final_water_quality_forecasting_model.h5 file"
-    )
-    
-    if model_file is not None:
+def load_tensorflow_model(uploaded_model):
+    """Load the trained TensorFlow model with error handling"""
+    try:
+        # Create a temporary file to save the uploaded model
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.h5') as tmp_file:
+            tmp_file.write(uploaded_model.read())
+            tmp_file_path = tmp_file.name
+        
         try:
-            # Save uploaded model temporarily and load it
-            with open("temp_model.h5", "wb") as f:
-                f.write(model_file.read())
-            model = tf.keras.models.load_model("temp_model.h5")
-            st.success("✅ Model loaded successfully!")
-            return model
-        except Exception as e:
-            st.error(f"Error loading model: {str(e)}")
-            st.stop()
-            return None
-    else:
-        st.error("❌ Please upload your trained model file to proceed.")
-        st.stop()
+            # Try loading with different methods
+            model = tf.keras.models.load_model(tmp_file_path, compile=False)
+            # Recompile the model
+            model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        except Exception as e1:
+            try:
+                # Alternative loading method
+                model = tf.keras.models.load_model(tmp_file_path, custom_objects=None, compile=False)
+                model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            except Exception as e2:
+                st.error(f"Model loading failed with both methods:")
+                st.error(f"Method 1: {str(e1)}")
+                st.error(f"Method 2: {str(e2)}")
+                return None
+        finally:
+            # Clean up temporary file
+            if os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+        
+        return model
+    except Exception as e:
+        st.error(f"Error processing model file: {str(e)}")
         return None
 
 def create_sequences(data, seq_length=10):
@@ -155,7 +144,15 @@ def predict_next_days(model, data, scaler, last_sequence, pred_days=5):
     for _ in range(pred_days):
         # Predict next day
         pred = model.predict(current_sequence, verbose=0)
-        next_day = pred[0, 0, :]  # Get first day of prediction
+        
+        # Handle different output shapes
+        if pred.ndim == 3:
+            next_day = pred[0, 0, :]  # Get first day of prediction
+        elif pred.ndim == 2:
+            next_day = pred[0, :]
+        else:
+            next_day = pred.flatten()
+        
         predictions.append(next_day)
         
         # Update sequence for next prediction
@@ -164,24 +161,69 @@ def predict_next_days(model, data, scaler, last_sequence, pred_days=5):
     
     # Convert predictions to original scale
     predictions = np.array(predictions)
+    
+    # Ensure predictions have the right shape for inverse transform
+    if predictions.shape[1] != scaler.n_features_in_:
+        st.error(f"Prediction shape mismatch: got {predictions.shape[1]}, expected {scaler.n_features_in_}")
+        return None
+    
     predictions_orig = scaler.inverse_transform(predictions)
     
     return predictions_orig
 
 # Main application
 def main():
+    # File uploaders moved outside of cached functions
+    st.sidebar.title("📁 File Upload")
+    
+    # Data file uploader
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload Bhagalpur.csv", 
+        type=['csv'],
+        help="Please upload your Bhagalpur water quality dataset"
+    )
+    
+    # Model file uploader
+    model_file = st.sidebar.file_uploader(
+        "Upload Model (.h5)", 
+        type=['h5'],
+        help="Upload your trained model file"
+    )
+    
+    # Check if files are uploaded
+    if uploaded_file is None:
+        st.warning("⚠️ Please upload your Bhagalpur.csv file to proceed.")
+        st.info("👆 Use the sidebar to upload your data file.")
+        return
+    
+    if model_file is None:
+        st.warning("⚠️ Please upload your trained model file to proceed.")
+        st.info("👆 Use the sidebar to upload your model file.")
+        return
+    
     # Load data
-    df = load_data()
+    with st.spinner("📊 Loading dataset..."):
+        df = load_csv_data(uploaded_file)
     
     if df is None or len(df) < 15:
         st.error("❌ Insufficient data for forecasting. Please upload a valid dataset.")
         return
     
+    st.success(f"✅ Dataset loaded successfully! {len(df)} records found.")
+    st.info(f"📅 Date range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
+    
+    # Load model
+    with st.spinner("🤖 Loading model..."):
+        model = load_tensorflow_model(model_file)
+    
+    if model is None:
+        st.error("❌ Failed to load the model. Please check the model file.")
+        return
+    
+    st.success("✅ Model loaded successfully!")
+    
     # Sidebar controls
     st.sidebar.title("🎛️ Control Panel")
-    
-    # Model loading
-    model = load_model()
     
     # Data preprocessing
     scaler = MinMaxScaler()
@@ -199,6 +241,10 @@ def main():
     # Make predictions
     with st.spinner("🔮 Generating 5-day forecast..."):
         predictions = predict_next_days(model, scaled_data, scaler, last_sequence)
+    
+    if predictions is None:
+        st.error("❌ Failed to generate predictions. Please check your model and data compatibility.")
+        return
     
     # Create prediction dates
     last_date = df['Date'].iloc[-1]
@@ -342,6 +388,15 @@ def main():
             st.metric("Prediction Horizon", "5 days")
         
         st.info("💡 The model uses the past 10 days of water quality data to predict the next 5 days.")
+        
+        # Display model summary if possible
+        try:
+            st.text("Model Architecture:")
+            model_summary = []
+            model.summary(print_fn=lambda x: model_summary.append(x))
+            st.text('\n'.join(model_summary))
+        except:
+            st.info("Model architecture details not available")
     
     # Download predictions
     if st.sidebar.button("💾 Download Predictions"):
