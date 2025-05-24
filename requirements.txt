@@ -1,11 +1,8 @@
 streamlit
 pandas
 numpy
-requests
 matplotlib
+seaborn
+plotly
 tensorflow
 scikit-learn
-altair
-folium
-streamlit-folium
-seaborn
