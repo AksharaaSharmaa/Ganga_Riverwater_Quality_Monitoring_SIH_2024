@@ -3,15 +3,9 @@ pandas
 numpy
 requests
 matplotlib
-tensorflow-cpu
+tensorflow
 scikit-learn
 altair
 folium
 streamlit-folium
-google-generativeai
-protobuf
-pip
-pygments
-mdurl
-markdown-it-py
-rich
+seaborn
