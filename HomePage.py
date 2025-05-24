@@ -383,6 +383,25 @@ st.markdown("""
         backdrop-filter: blur(10px);
         height: 400px;
     }
+    
+    /* Error Message Styling */
+    .error-message {
+        background: rgba(244, 67, 54, 0.1);
+        border: 2px solid #f44336;
+        border-radius: 12px;
+        padding: 1rem;
+        color: #c62828;
+        margin: 1rem 0;
+    }
+    
+    .warning-message {
+        background: rgba(255, 152, 0, 0.1);
+        border: 2px solid #ff9800;
+        border-radius: 12px;
+        padding: 1rem;
+        color: #ef6c00;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -392,34 +411,104 @@ PRED_LEN = 5
 MODEL_PATH = 'bhagalpur_final_water_quality_forecasting_model.h5'
 DATA_PATH = 'Bhagalpur.csv'
 
+# --- UTILITY FUNCTIONS ---
+def identify_numeric_columns(df):
+    """Identify only truly numeric columns, excluding categorical text columns."""
+    numeric_cols = []
+    for col in df.columns:
+        if col.lower() in ['date', 'time', 'datetime']:
+            continue
+        
+        # Check if column is numeric
+        if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+            numeric_cols.append(col)
+        else:
+            # Try to convert to numeric, if it fails, it's likely categorical
+            try:
+                pd.to_numeric(df[col], errors='raise')
+                numeric_cols.append(col)
+            except (ValueError, TypeError):
+                # This is a categorical/text column
+                continue
+    
+    return numeric_cols
+
+def clean_data(df):
+    """Clean and prepare data, handling categorical columns properly."""
+    df_clean = df.copy()
+    
+    # Identify numeric columns only
+    numeric_cols = identify_numeric_columns(df_clean)
+    
+    # Handle categorical columns separately
+    categorical_cols = [col for col in df_clean.columns if col not in numeric_cols and col.lower() not in ['date', 'time', 'datetime']]
+    
+    if categorical_cols:
+        st.warning(f"⚠️ Categorical columns detected and will be excluded from modeling: {', '.join(categorical_cols)}")
+        # Drop categorical columns for modeling
+        df_clean = df_clean.drop(columns=categorical_cols)
+    
+    # Fill missing values in numeric columns only
+    for col in numeric_cols:
+        if col in df_clean.columns:
+            df_clean[col] = df_clean[col].interpolate(method='linear').bfill().ffill()
+    
+    return df_clean, numeric_cols, categorical_cols
+
 # --- LOAD MODEL AND SCALER ---
 @st.cache_resource
 def load_model():
     try:
         return tf.keras.models.load_model(MODEL_PATH)
-    except:
-        st.error("Model file not found. Please ensure the model file is in the correct location.")
+    except Exception as e:
+        st.error(f"⚠️ Model file not found: {str(e)}")
         return None
 
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv(DATA_PATH, parse_dates=['Date'], dayfirst=True)
+        # Try different date parsing formats
+        for date_format in [True, False]:  # dayfirst=True, then False
+            try:
+                df = pd.read_csv(DATA_PATH, parse_dates=['Date'], dayfirst=date_format)
+                break
+            except:
+                continue
+        else:
+            # If Date column doesn't exist or parsing fails, try without date parsing
+            df = pd.read_csv(DATA_PATH)
+            # Try to find date column with different names
+            date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+            if date_cols:
+                df[date_cols[0]] = pd.to_datetime(df[date_cols[0]], errors='coerce', infer_datetime_format=True)
+                df = df.rename(columns={date_cols[0]: 'Date'})
+            else:
+                # Create a synthetic date column if none exists
+                df['Date'] = pd.date_range(start='2020-01-01', periods=len(df), freq='D')
+        
         df = df.sort_values('Date').reset_index(drop=True)
-        # Keep WQI column if it exists
-        df = df.interpolate(method='linear').bfill().ffill()
-        return df
-    except:
-        st.error("Data file not found. Please ensure the CSV file is in the correct location.")
-        return None
+        
+        # Clean the data and handle categorical columns
+        df_clean, numeric_cols, categorical_cols = clean_data(df)
+        
+        return df_clean, numeric_cols, categorical_cols
+    except Exception as e:
+        st.error(f"⚠️ Error loading data: {str(e)}")
+        return None, [], []
 
 @st.cache_resource
-def get_scaler(df):
+def get_scaler(df, numeric_cols):
+    """Create scaler using only numeric columns."""
     scaler = MinMaxScaler()
-    # Exclude Date and WQI columns from scaling for prediction
-    cols_to_scale = [col for col in df.columns if col not in ['Date', 'WQI']]
-    scaler.fit(df[cols_to_scale])
-    return scaler
+    # Only use confirmed numeric columns for scaling
+    cols_to_scale = [col for col in numeric_cols if col in df.columns and col not in ['Date', 'WQI']]
+    
+    if cols_to_scale:
+        scaler.fit(df[cols_to_scale])
+        return scaler, cols_to_scale
+    else:
+        st.error("No numeric columns found for scaling!")
+        return None, []
 
 def get_wqi_status(wqi):
     if wqi >= 90:
@@ -510,14 +599,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data and model
-df = load_data()
-if df is None:
+data_result = load_data()
+if data_result is None or data_result[0] is None:
     st.stop()
 
-scaler = get_scaler(df)
-model = load_model()
-if model is None:
+df, numeric_cols, categorical_cols = data_result
+
+# Display data loading information
+if categorical_cols:
+    st.markdown(f"""
+    <div class="warning-message">
+        <strong>📊 Data Processing Info:</strong><br>
+        • Numeric columns detected: {len(numeric_cols)} columns<br>
+        • Categorical columns excluded: {len(categorical_cols)} columns ({', '.join(categorical_cols[:5])}{'...' if len(categorical_cols) > 5 else ''})<br>
+        • Only numeric data will be used for modeling and predictions.
+    </div>
+    """, unsafe_allow_html=True)
+
+if not numeric_cols:
+    st.error("❌ No numeric columns found in the dataset. Please check your data format.")
     st.stop()
+
+scaler_result = get_scaler(df, numeric_cols)
+if scaler_result[0] is None:
+    st.stop()
+
+scaler, scalable_cols = scaler_result
+model = load_model()
 
 # --- WQI AND MAP SECTION ---
 st.markdown('<div class="slide-up">', unsafe_allow_html=True)
@@ -525,48 +633,62 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     # Get WQI from dataset or calculate if not present
-    if 'WQI' in df.columns:
+    if 'WQI' in df.columns and 'WQI' in numeric_cols:
         current_wqi = df['WQI'].iloc[-1]
         
-        # Make WQI prediction
-        latest_date = df['Date'].max()
-        start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
-        input_window = df[(df['Date'] >= start_date) & (df['Date'] <= latest_date)]
-        
-        if input_window.shape[0] == SEQ_LEN and 'WQI' in input_window.columns:
-            # Prepare data for prediction (exclude Date and WQI for input features)
-            feature_cols = [col for col in input_window.columns if col not in ['Date', 'WQI']]
-            X_input = scaler.transform(input_window[feature_cols].values)
-            X_input = X_input.reshape(1, SEQ_LEN, -1)
+        if model is not None and len(scalable_cols) > 0:
+            # Make WQI prediction
+            latest_date = df['Date'].max()
+            start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
+            input_window = df[(df['Date'] >= start_date) & (df['Date'] <= latest_date)]
             
-            # Make prediction
-            prediction = model.predict(X_input)
-            prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
-            prediction_orig = scaler.inverse_transform(prediction_reshaped)
-            
-            # Create future dates
-            future_dates = pd.date_range(
-                input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
-                periods=PRED_LEN, 
-                freq='D'
-            )
-            
-            # Create prediction dataframe
-            pred_df = pd.DataFrame(
-                prediction_orig, 
-                columns=feature_cols, 
-                index=future_dates
-            )
-            
-            # For WQI, we'll use a simple calculation or show next day's predicted WQI
-            # Since WQI calculation depends on multiple parameters, we'll estimate it
-            next_day_wqi = current_wqi  # This should be replaced with proper WQI calculation from predicted parameters
+            if input_window.shape[0] == SEQ_LEN:
+                try:
+                    # Prepare data for prediction using only scalable columns
+                    X_input = scaler.transform(input_window[scalable_cols].values)
+                    X_input = X_input.reshape(1, SEQ_LEN, -1)
+                    
+                    # Make prediction
+                    prediction = model.predict(X_input, verbose=0)
+                    prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
+                    prediction_orig = scaler.inverse_transform(prediction_reshaped)
+                    
+                    # Create future dates
+                    future_dates = pd.date_range(
+                        input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
+                        periods=PRED_LEN, 
+                        freq='D'
+                    )
+                    
+                    # Create prediction dataframe
+                    pred_df = pd.DataFrame(
+                        prediction_orig, 
+                        columns=scalable_cols, 
+                        index=future_dates
+                    )
+                    
+                    # For WQI, estimate based on trend
+                    wqi_trend = df['WQI'].tail(5).diff().mean()
+                    next_day_wqi = max(0, min(100, current_wqi + wqi_trend))
+                    
+                except Exception as e:
+                    st.warning(f"⚠️ Prediction error: {str(e)}")
+                    next_day_wqi = current_wqi
+            else:
+                next_day_wqi = current_wqi
+        else:
+            next_day_wqi = current_wqi
             
     else:
         # Fallback calculation if WQI not in dataset
-        current_data = df.iloc[-1]
-        current_wqi = 75  # Default value
-        next_day_wqi = 73
+        if numeric_cols:
+            # Simple WQI estimation based on available parameters
+            current_data = df[numeric_cols].iloc[-1]
+            current_wqi = min(100, max(0, np.mean(current_data.fillna(50))))  # Simple average
+            next_day_wqi = current_wqi
+        else:
+            current_wqi = 75  # Default value
+            next_day_wqi = 73
     
     wqi_status, wqi_color = get_wqi_status(current_wqi)
     
@@ -602,418 +724,480 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
 st.markdown('<div class="section-header">🔬 Current Water Quality Parameters</div>', unsafe_allow_html=True)
 
-# Display all current parameters in a grid
-numeric_cols = [col for col in df.select_dtypes(include=[np.number]).columns if col != 'WQI']
-current_data = df.iloc[-1]
-
-# Create columns for parameters (4 per row)
-cols_per_row = 4
-rows_needed = (len(numeric_cols) + cols_per_row - 1) // cols_per_row
-
-for row in range(rows_needed):
-    cols = st.columns(cols_per_row)
-    for col_idx in range(cols_per_row):
-        param_idx = row * cols_per_row + col_idx
-        if param_idx < len(numeric_cols):
-            param = numeric_cols[param_idx]
-            value = current_data[param]
-            
-            with cols[col_idx]:
-                st.markdown(f"""
-                <div class="param-card">
-                    <div class="param-value">{value:.2f}</div>
-                    <div class="param-label">{param.replace('_', ' ')}</div>
-                </div>
-                """, unsafe_allow_html=True)
+# Display all current numeric parameters in a grid
+if numeric_cols:
+    current_data = df[numeric_cols].iloc[-1]
+    
+    # Create columns for parameters (4 per row)
+    cols_per_row = 4
+    rows_needed = (len(numeric_cols) + cols_per_row - 1) // cols_per_row
+    
+    for row in range(rows_needed):
+        cols = st.columns(cols_per_row)
+        for col_idx in range(cols_per_row):
+            param_idx = row * cols_per_row + col_idx
+            if param_idx < len(numeric_cols):
+                param = numeric_cols[param_idx]
+                value = current_data[param]
+                
+                with cols[col_idx]:
+                    st.markdown(f"""
+                    <div class="param-card">
+                        <div class="param-value">{value:.2f}</div>
+                        <div class="param-label">{param.replace('_', ' ')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+else:
+    st.warning("⚠️ No numeric parameters available for display.")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- DUAL CHART SECTION ---
-st.markdown('<div class="glass-card slide-up">', unsafe_allow_html=True)
-st.markdown('<div class="section-header">📈 Historical Trends & Forecasting</div>', unsafe_allow_html=True)
-
-# Parameter selection for visualization (include WQI if available)
-available_params = numeric_cols.copy()
-if 'WQI' in df.columns:
-    available_params = ['WQI'] + available_params
-
-param = st.selectbox(
-    '🎯 Select Parameter for Analysis', 
-    available_params,
-    index=0 if 'WQI' in available_params else 0,
-    help="Choose which water quality parameter to analyze and forecast"
-)
-
-col1, col2 = st.columns([1, 1])
+# --- DUAL CHART SECTION ---
+st.markdown('<div class="slide-up">', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("### 📊 Past Year Trend")
-    # Get past year data
-    one_year_ago = df['Date'].max() - pd.Timedelta(days=365)
-    past_year_data = df[df['Date'] >= one_year_ago].copy()
-    
-    # Create past year chart with blue theme
-    past_year_chart = alt.Chart(past_year_data).mark_line(
-        point=alt.OverlayMarkDef(size=40, filled=True),
-        strokeWidth=3,
-        color='#1976d2'
-    ).encode(
-        x=alt.X('Date:T', title='Date', axis=alt.Axis(labelAngle=-45)),
-        y=alt.Y(f'{param}:Q', title=param, scale=alt.Scale(nice=True)),
-        tooltip=['Date:T', f'{param}:Q']
-    ).properties(
-        width=400,
-        height=300,
-        title=alt.TitleParams(
-            text=f'{param} - Past Year Trend',
-            fontSize=16,
-            fontWeight='bold',
-            color='#0d47a1'
-        )
-    )
-    
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    st.altair_chart(past_year_chart, use_container_width=True)
+    st.markdown('<div class="section-header">📈 Parameter Trends (Last 30 Days)</div>', unsafe_allow_html=True)
+    
+    if numeric_cols and len(df) > 1:
+        # Get last 30 days of data
+        recent_data = df.tail(min(30, len(df)))
+        
+        # Create parameter selection
+        selected_param = st.selectbox(
+            "Select Parameter to View",
+            options=numeric_cols,
+            index=0 if numeric_cols else None,
+            key="trend_param"
+        )
+        
+        if selected_param:
+            # Create trend chart
+            chart_data = recent_data[['Date', selected_param]].copy()
+            chart_data = chart_data.dropna()
+            
+            if len(chart_data) > 0:
+                trend_chart = alt.Chart(chart_data).mark_line(
+                    point=True,
+                    color='#1976d2',
+                    strokeWidth=3
+                ).add_selection(
+                    alt.selection_interval(bind='scales')
+                ).encode(
+                    x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%m/%d')),
+                    y=alt.Y(f'{selected_param}:Q', title=selected_param.replace('_', ' ')),
+                    tooltip=[
+                        alt.Tooltip('Date:T', format='%B %d, %Y'),
+                        alt.Tooltip(f'{selected_param}:Q', format='.2f')
+                    ]
+                ).properties(
+                    width=400,
+                    height=300,
+                    title=f"{selected_param.replace('_', ' ')} Trend"
+                ).configure_title(
+                    fontSize=16,
+                    color='#0d47a1'
+                ).configure_axis(
+                    labelColor='#1565c0',
+                    titleColor='#0d47a1'
+                )
+                
+                st.altair_chart(trend_chart, use_container_width=True)
+            else:
+                st.warning("⚠️ No data available for the selected parameter.")
+    else:
+        st.info("📊 Insufficient data for trend analysis.")
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown("### 🔮 5-Day Forecast")
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔄 Parameter Correlation</div>', unsafe_allow_html=True)
     
-    # Get latest data for prediction
-    latest_date = df['Date'].max()
-    start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
-    input_window = df[(df['Date'] >= start_date) & (df['Date'] <= latest_date)]
-    
-    if input_window.shape[0] == SEQ_LEN:
-        # Prepare features for prediction
-        feature_cols = [col for col in input_window.columns if col not in ['Date', 'WQI']]
-        X_input = scaler.transform(input_window[feature_cols].values)
-        X_input = X_input.reshape(1, SEQ_LEN, -1)
+    if len(numeric_cols) > 1:
+        # Calculate correlation matrix
+        corr_data = df[numeric_cols].corr().reset_index()
+        corr_melted = corr_data.melt(id_vars='index', var_name='variable', value_name='correlation')
+        corr_melted = corr_melted.rename(columns={'index': 'param1', 'variable': 'param2'})
         
-        # Make prediction
-        prediction = model.predict(X_input)
-        prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
-        prediction_orig = scaler.inverse_transform(prediction_reshaped)
-        
-        # Prepare prediction dataframe
-        future_dates = pd.date_range(
-            input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
-            periods=PRED_LEN, 
-            freq='D'
-        )
-        pred_df = pd.DataFrame(
-            prediction_orig, 
-            columns=feature_cols, 
-            index=future_dates
-        )
-        pred_df.index.name = 'Date'
-        pred_df = pred_df.reset_index()
-        
-        # If predicting WQI and it exists in the dataset, use historical WQI data for the chart
-        if param == 'WQI' and 'WQI' in df.columns:
-            # For WQI prediction, we'll use a simple trend continuation or calculated values
-            hist_wqi = input_window[['Date', 'WQI']].copy()
-            # Simple WQI prediction based on trend (this should be improved with proper WQI calculation)
-            wqi_trend = hist_wqi['WQI'].diff().mean()
-            pred_wqi_values = []
-            last_wqi = hist_wqi['WQI'].iloc[-1]
-            for i in range(PRED_LEN):
-                pred_wqi_values.append(last_wqi + (wqi_trend * (i + 1)))
-            
-            pred_wqi_df = pd.DataFrame({
-                'Date': future_dates,
-                'WQI': pred_wqi_values
-            })
-            
-            # Prepare combined data for chart
-            hist_data = hist_wqi.copy()
-            hist_data['Type'] = 'Historical'
-            hist_data = hist_data.rename(columns={'WQI': 'Value'})
-            
-            pred_data = pred_wqi_df.copy()
-            pred_data['Type'] = 'Forecast'
-            pred_data = pred_data.rename(columns={'WQI': 'Value'})
-            
-        elif param in pred_df.columns:
-            # Prepare combined data for chart
-            hist_data = input_window[['Date', param]].copy()
-            hist_data['Type'] = 'Historical'
-            hist_data = hist_data.rename(columns={param: 'Value'})
-            
-            pred_data = pred_df[['Date', param]].copy()
-            pred_data['Type'] = 'Forecast'
-            pred_data = pred_data.rename(columns={param: 'Value'})
-            
-        else:
-            st.error(f"Parameter {param} not available for prediction")
-            st.stop()
-            
-        # Combine historical and forecast data
-        combined_data = pd.concat([hist_data, pred_data], ignore_index=True)
-        
-        # Create forecast chart with dual colors
-        base = alt.Chart(combined_data).add_selection(
-            alt.selection_single()
-        )
-        
-        historical_line = base.mark_line(
-            strokeWidth=3,
-            color='#42a5f5'
-        ).encode(
-            x=alt.X('Date:T', title='Date', axis=alt.Axis(labelAngle=-45)),
-            y=alt.Y('Value:Q', title=param, scale=alt.Scale(nice=True)),
-            opacity=alt.condition(alt.datum.Type == 'Historical', alt.value(1.0), alt.value(0))
-        )
-        
-        forecast_line = base.mark_line(
-            strokeWidth=3,
-            strokeDash=[5, 5],
-            color='#1976d2'
-        ).encode(
-            x=alt.X('Date:T'),
-            y=alt.Y('Value:Q'),
-            opacity=alt.condition(alt.datum.Type == 'Forecast', alt.value(1.0), alt.value(0))
-        )
-        
-        points = base.mark_circle(size=60).encode(
-            x=alt.X('Date:T'),
-            y=alt.Y('Value:Q'),
-            color=alt.Color('Type:N', 
-                scale=alt.Scale(domain=['Historical', 'Forecast'], 
-                              range=['#42a5f5', '#1976d2']),
-                legend=alt.Legend(title="Data Type")
+        # Create heatmap
+        heatmap = alt.Chart(corr_melted).mark_rect().encode(
+            x=alt.X('param1:N', title='Parameters', axis=alt.Axis(labelAngle=-45)),
+            y=alt.Y('param2:N', title='Parameters'),
+            color=alt.Color(
+                'correlation:Q',
+                scale=alt.Scale(scheme='blueorange', domain=[-1, 1]),
+                title='Correlation'
             ),
-            tooltip=['Date:T', 'Value:Q', 'Type:N']
-        )
-        
-        forecast_chart = (historical_line + forecast_line + points).properties(
+            tooltip=[
+                'param1:N',
+                'param2:N',
+                alt.Tooltip('correlation:Q', format='.3f')
+            ]
+        ).properties(
             width=400,
             height=300,
-            title=alt.TitleParams(
-                text=f'{param} - 5-Day Forecast',
-                fontSize=16,
-                fontWeight='bold',
-                color='#0d47a1'
-            )
+            title="Parameter Correlation Matrix"
+        ).configure_title(
+            fontSize=16,
+            color='#0d47a1'
+        ).configure_axis(
+            labelColor='#1565c0',
+            titleColor='#0d47a1'
         )
         
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.altair_chart(forecast_chart, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Display forecast summary cards
-        st.markdown("### 📋 5-Day Forecast Summary")
-        
-        if param == 'WQI' and 'WQI' in df.columns:
-            forecast_values = pred_wqi_values
-        else:
-            forecast_values = pred_df[param].values
-            
-        forecast_cols = st.columns(5)
-        for i, (date, value) in enumerate(zip(future_dates, forecast_values)):
-            with forecast_cols[i]:
-                day_name = date.strftime('%a')
-                date_str = date.strftime('%m/%d')
-                st.markdown(f"""
-                <div class="forecast-card">
-                    <div style="font-size: 0.9rem; color: #1565c0; margin-bottom: 0.5rem;">{day_name}</div>
-                    <div style="font-size: 0.8rem; color: #42a5f5; margin-bottom: 0.5rem;">{date_str}</div>
-                    <div class="forecast-value">{value:.1f}</div>
-                    <div class="forecast-label">{param}</div>
-                </div>
-                """, unsafe_allow_html=True)
-    
+        st.altair_chart(heatmap, use_container_width=True)
     else:
-        st.error("Insufficient data for prediction. Need at least 10 days of data.")
+        st.info("🔗 Need multiple parameters for correlation analysis.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- DETAILED DATA TABLE SECTION ---
+# --- FORECASTING SECTION ---
+if model is not None and len(scalable_cols) > 0:
+    st.markdown('<div class="glass-card slide-up">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔮 5-Day Water Quality Forecast</div>', unsafe_allow_html=True)
+    
+    try:
+        # Prepare input sequence
+        latest_date = df['Date'].max()
+        start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
+        input_window = df[(df['Date'] >= start_date) & (df['Date'] <= latest_date)]
+        
+        if input_window.shape[0] == SEQ_LEN:
+            # Make prediction
+            X_input = scaler.transform(input_window[scalable_cols].values)
+            X_input = X_input.reshape(1, SEQ_LEN, -1)
+            
+            prediction = model.predict(X_input, verbose=0)
+            prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
+            prediction_orig = scaler.inverse_transform(prediction_reshaped)
+            
+            # Create future dates
+            future_dates = pd.date_range(
+                input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
+                periods=PRED_LEN, 
+                freq='D'
+            )
+            
+            # Create prediction dataframe
+            pred_df = pd.DataFrame(
+                prediction_orig, 
+                columns=scalable_cols, 
+                index=future_dates
+            )
+            pred_df['Date'] = future_dates
+            
+            # Display forecast summary cards
+            st.markdown("### 📊 Forecast Summary")
+            
+            # Create forecast summary cards
+            forecast_cols = st.columns(PRED_LEN)
+            for i, (date, row) in enumerate(pred_df.iterrows()):
+                with forecast_cols[i]:
+                    day_name = date.strftime('%a')
+                    date_str = date.strftime('%m/%d')
+                    
+                    # Calculate average parameter value for the day
+                    avg_value = row[scalable_cols].mean()
+                    
+                    st.markdown(f"""
+                    <div class="forecast-card">
+                        <div class="forecast-label">{day_name}<br>{date_str}</div>
+                        <div class="forecast-value">{avg_value:.1f}</div>
+                        <div class="forecast-label">Avg Quality</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Detailed forecast charts
+            st.markdown("### 📈 Detailed Parameter Forecasts")
+            
+            # Parameter selection for detailed forecast
+            forecast_param = st.selectbox(
+                "Select Parameter for Detailed Forecast",
+                options=scalable_cols,
+                index=0,
+                key="forecast_param"
+            )
+            
+            if forecast_param:
+                # Combine historical and forecast data
+                historical_data = df[['Date', forecast_param]].tail(14).copy()
+                historical_data['Type'] = 'Historical'
+                
+                forecast_data = pd.DataFrame({
+                    'Date': pred_df['Date'],
+                    forecast_param: pred_df[forecast_param],
+                    'Type': 'Forecast'
+                })
+                
+                combined_data = pd.concat([historical_data, forecast_data], ignore_index=True)
+                
+                # Create forecast chart
+                base = alt.Chart(combined_data).add_selection(
+                    alt.selection_interval(bind='scales')
+                )
+                
+                historical_line = base.mark_line(
+                    color='#1976d2',
+                    strokeWidth=3
+                ).encode(
+                    x=alt.X('Date:T', title='Date'),
+                    y=alt.Y(f'{forecast_param}:Q', title=forecast_param.replace('_', ' ')),
+                    tooltip=[
+                        alt.Tooltip('Date:T', format='%B %d, %Y'),
+                        alt.Tooltip(f'{forecast_param}:Q', format='.2f'),
+                        'Type:N'
+                    ]
+                ).transform_filter(
+                    alt.datum.Type == 'Historical'
+                )
+                
+                forecast_line = base.mark_line(
+                    color='#ff9800',
+                    strokeWidth=3,
+                    strokeDash=[5, 5]
+                ).encode(
+                    x=alt.X('Date:T', title='Date'),
+                    y=alt.Y(f'{forecast_param}:Q', title=forecast_param.replace('_', ' ')),
+                    tooltip=[
+                        alt.Tooltip('Date:T', format='%B %d, %Y'),
+                        alt.Tooltip(f'{forecast_param}:Q', format='.2f'),
+                        'Type:N'
+                    ]
+                ).transform_filter(
+                    alt.datum.Type == 'Forecast'
+                )
+                
+                points = base.mark_circle(
+                    size=80
+                ).encode(
+                    x='Date:T',
+                    y=f'{forecast_param}:Q',
+                    color=alt.Color(
+                        'Type:N',
+                        scale=alt.Scale(domain=['Historical', 'Forecast'], range=['#1976d2', '#ff9800'])
+                    ),
+                    tooltip=[
+                        alt.Tooltip('Date:T', format='%B %d, %Y'),
+                        alt.Tooltip(f'{forecast_param}:Q', format='.2f'),
+                        'Type:N'
+                    ]
+                )
+                
+                forecast_chart = (historical_line + forecast_line + points).properties(
+                    width=800,
+                    height=400,
+                    title=f"{forecast_param.replace('_', ' ')} - Historical vs Forecast"
+                ).configure_title(
+                    fontSize=18,
+                    color='#0d47a1'
+                ).configure_axis(
+                    labelColor='#1565c0',
+                    titleColor='#0d47a1'
+                ).resolve_scale(
+                    color='independent'
+                )
+                
+                st.altair_chart(forecast_chart, use_container_width=True)
+            
+            # Forecast data table
+            with st.expander("📋 Detailed Forecast Data", expanded=False):
+                display_df = pred_df.copy()
+                display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+                display_df = display_df.round(3)
+                st.dataframe(display_df, use_container_width=True)
+        
+        else:
+            st.warning(f"⚠️ Insufficient data for forecasting. Need {SEQ_LEN} consecutive days, but only {input_window.shape[0]} available.")
+    
+    except Exception as e:
+        st.error(f"❌ Forecasting Error: {str(e)}")
+        st.info("🔧 This might be due to data format issues or model compatibility problems.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+else:
+    st.markdown('<div class="error-message">', unsafe_allow_html=True)
+    if model is None:
+        st.markdown("❌ **Forecasting Unavailable**: Model file not found or failed to load.")
+    else:
+        st.markdown("❌ **Forecasting Unavailable**: No scalable numeric columns found for prediction.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- DATA INSIGHTS SECTION ---
 st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-st.markdown('<div class="section-header">📊 Recent Water Quality Data</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">💡 Data Insights & Statistics</div>', unsafe_allow_html=True)
 
-# Show last 30 days of data
-recent_data = df.tail(30).copy()
-recent_data['Date'] = recent_data['Date'].dt.strftime('%Y-%m-%d')
+if numeric_cols:
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📊 Statistical Summary")
+        stats_df = df[numeric_cols].describe().round(3)
+        st.dataframe(stats_df, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### 🎯 Key Insights")
+        
+        # Calculate insights
+        total_records = len(df)
+        date_range = (df['Date'].max() - df['Date'].min()).days if 'Date' in df.columns else 0
+        
+        # Find parameters with highest/lowest values
+        current_values = df[numeric_cols].iloc[-1]
+        highest_param = current_values.idxmax()
+        lowest_param = current_values.idxmin()
+        
+        # Calculate trends for each parameter
+        trends = {}
+        for param in numeric_cols:
+            if len(df) >= 7:
+                recent_avg = df[param].tail(7).mean()
+                previous_avg = df[param].iloc[-14:-7].mean() if len(df) >= 14 else df[param].head(7).mean()
+                trend = "↗️ Increasing" if recent_avg > previous_avg else "↘️ Decreasing" if recent_avg < previous_avg else "➡️ Stable"
+                trends[param] = trend
+        
+        insights_html = f"""
+        <div style="background: rgba(33, 150, 243, 0.1); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(66, 165, 245, 0.3);">
+            <p><strong>📈 Total Records:</strong> {total_records:,}</p>
+            <p><strong>📅 Data Span:</strong> {date_range} days</p>
+            <p><strong>⬆️ Highest Current:</strong> {highest_param} ({current_values[highest_param]:.2f})</p>
+            <p><strong>⬇️ Lowest Current:</strong> {lowest_param} ({current_values[lowest_param]:.2f})</p>
+        </div>
+        """
+        st.markdown(insights_html, unsafe_allow_html=True)
+        
+        if trends:
+            st.markdown("#### 📈 Recent Trends (7-day)")
+            for param, trend in list(trends.items())[:5]:  # Show top 5
+                st.markdown(f"**{param.replace('_', ' ')}:** {trend}")
 
-# Format numeric columns to 2 decimal places
-for col in recent_data.select_dtypes(include=[np.number]).columns:
-    recent_data[col] = recent_data[col].round(2)
-
-st.dataframe(
-    recent_data,
-    use_container_width=True,
-    height=400,
-    hide_index=True
-)
+else:
+    st.info("📊 No numeric data available for statistical analysis.")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- WATER QUALITY INSIGHTS SECTION ---
+# --- HISTORICAL DATA VIEWER ---
 st.markdown('<div class="glass-card slide-up">', unsafe_allow_html=True)
-st.markdown('<div class="section-header">🔍 Water Quality Insights</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📋 Historical Data Explorer</div>', unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 1])
+# Date range selector
+if 'Date' in df.columns:
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        start_date = st.date_input(
+            "Start Date",
+            value=df['Date'].max() - pd.Timedelta(days=30),
+            min_value=df['Date'].min().date(),
+            max_value=df['Date'].max().date()
+        )
+    
+    with col2:
+        end_date = st.date_input(
+            "End Date",
+            value=df['Date'].max().date(),
+            min_value=df['Date'].min().date(),
+            max_value=df['Date'].max().date()
+        )
+    
+    # Filter data based on date range
+    filtered_df = df[(df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)]
+    
+    if len(filtered_df) > 0:
+        st.markdown(f"#### 📊 Showing {len(filtered_df)} records from {start_date} to {end_date}")
+        
+        # Display options
+        col1, col2 = st.columns(2)
+        with col1:
+            show_all_cols = st.checkbox("Show All Columns", value=False)
+        with col2:
+            download_data = st.checkbox("Enable Data Download", value=False)
+        
+        # Select columns to display
+        if show_all_cols:
+            display_cols = filtered_df.columns.tolist()
+        else:
+            display_cols = ['Date'] + numeric_cols[:10]  # Show date + first 10 numeric columns
+        
+        display_df = filtered_df[display_cols].copy()
+        if 'Date' in display_df.columns:
+            display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+        
+        st.dataframe(display_df, use_container_width=True, height=400)
+        
+        # Download option
+        if download_data:
+            csv = display_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Filtered Data as CSV",
+                data=csv,
+                file_name=f"bhagalpur_water_quality_{start_date}_to_{end_date}.csv",
+                mime="text/csv"
+            )
+    else:
+        st.warning("⚠️ No data available for the selected date range.")
+
+else:
+    st.info("📅 Date column not available for filtering.")
+    st.dataframe(df.head(20), use_container_width=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- SYSTEM STATUS AND FOOTER ---
+st.markdown('<div class="cosmic-footer fade-in">', unsafe_allow_html=True)
+
+# System status
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("### 📈 Statistical Summary")
-    
-    # Calculate statistics for recent data (last 30 days)
-    recent_stats = recent_data.select_dtypes(include=[np.number])
-    if not recent_stats.empty:
-        stats_df = pd.DataFrame({
-            'Parameter': recent_stats.columns,
-            'Mean': recent_stats.mean().round(2),
-            'Std Dev': recent_stats.std().round(2),
-            'Min': recent_stats.min().round(2),
-            'Max': recent_stats.max().round(2)
-        })
-        
-        st.dataframe(
-            stats_df,
-            use_container_width=True,
-            hide_index=True
-        )
+    model_status = "🟢 Active" if model is not None else "🔴 Offline"
+    st.markdown(f"""
+    <div style="text-align: center;">
+        <h4>🤖 AI Model Status</h4>
+        <p style="font-size: 1.2rem; font-weight: 600;">{model_status}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown("### 🎯 Quality Assessment")
-    
-    # Water quality assessment based on current parameters
-    current_data = df.iloc[-1]
-    
-    # Define parameter ranges (these should be adjusted based on actual water quality standards)
-    parameter_ranges = {
-        'pH': {'good': (6.5, 8.5), 'unit': ''},
-        'Dissolved_Oxygen': {'good': (5, 15), 'unit': 'mg/L'},
-        'Turbidity': {'good': (0, 5), 'unit': 'NTU'},
-        'Temperature': {'good': (15, 30), 'unit': '°C'},
-        'Conductivity': {'good': (50, 500), 'unit': 'µS/cm'}
-    }
-    
-    assessments = []
-    for param, ranges in parameter_ranges.items():
-        if param in current_data:
-            value = current_data[param]
-            good_min, good_max = ranges['good']
-            unit = ranges['unit']
-            
-            if good_min <= value <= good_max:
-                status = "✅ Good"
-                color = "#1976d2"
-            else:
-                status = "⚠️ Attention"
-                color = "#ff9800"
-            
-            assessments.append({
-                'Parameter': param.replace('_', ' '),
-                'Value': f"{value:.2f} {unit}",
-                'Status': status
-            })
-    
-    if assessments:
-        assessment_df = pd.DataFrame(assessments)
-        st.dataframe(
-            assessment_df,
-            use_container_width=True,
-            hide_index=True
-        )
+    data_status = f"🟢 {len(df)} Records" if len(df) > 0 else "🔴 No Data"
+    st.markdown(f"""
+    <div style="text-align: center;">
+        <h4>📊 Data Status</h4>
+        <p style="font-size: 1.2rem; font-weight: 600;">{data_status}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
+with col3:
+    current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    st.markdown(f"""
+    <div style="text-align: center;">
+        <h4>🕒 Last Updated</h4>
+        <p style="font-size: 1.2rem; font-weight: 600;">{current_time}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- EXPANDABLE SECTIONS ---
-with st.expander("🔬 Model Information & Technical Details"):
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("""
-        **🤖 Model Architecture:**
-        - **Type:** Long Short-Term Memory (LSTM) Neural Network
-        - **Sequence Length:** 10 days
-        - **Prediction Horizon:** 5 days
-        - **Features:** Multi-parameter water quality indicators
-        - **Training Data:** Historical Bhagalpur water quality records
-        
-        **📊 Data Processing:**
-        - Min-Max normalization for all parameters
-        - Linear interpolation for missing values
-        - Temporal sequence modeling for time-series forecasting
-        """)
-    
-    with col2:
-        st.markdown("""
-        **🎯 Model Performance:**
-        - Optimized for water quality parameter prediction
-        - Real-time data integration capability
-        - Continuous learning from new data points
-        - Robust handling of seasonal variations
-        
-        **⚡ Update Frequency:**
-        - Data refresh: Every 6 hours
-        - Model retraining: Weekly
-        - Forecast generation: Real-time
-        """)
-
-with st.expander("📍 Location & Monitoring Details"):
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("""
-        **🗺️ Monitoring Station Details:**
-        - **Location:** Bhagalpur, Bihar, India
-        - **Coordinates:** 25.2425°N, 87.0144°E
-        - **Water Body:** Ganges River system
-        - **Station Type:** Automated monitoring station
-        - **Coverage Area:** 2km radius monitoring zone
-        """)
-    
-    with col2:
-        st.markdown("""
-        **🔧 Equipment & Sensors:**
-        - pH meters and dissolved oxygen sensors
-        - Turbidity and conductivity probes
-        - Temperature monitoring systems
-        - Automated data logging
-        - Solar-powered operation
-        - Wireless data transmission
-        """)
-
-with st.expander("📋 Water Quality Standards & Guidelines"):
-    st.markdown("""
-    **🌊 Water Quality Parameter Guidelines (IS 10500:2012 - Indian Standards)**
-    
-    | Parameter | Acceptable Limit | Permissible Limit | Unit |
-    |-----------|------------------|-------------------|------|
-    | pH | 6.5 - 8.5 | 6.5 - 8.5 | - |
-    | Dissolved Oxygen | > 5 | > 4 | mg/L |
-    | Turbidity | 1 | 5 | NTU |
-    | Total Dissolved Solids | 500 | 2000 | mg/L |
-    | Conductivity | 200-800 | < 3000 | µS/cm |
-    
-    **🎯 Water Quality Index (WQI) Classification:**
-    - **90-100:** Excellent water quality
-    - **70-89:** Good water quality  
-    - **50-69:** Fair water quality
-    - **25-49:** Poor water quality
-    - **0-24:** Very poor water quality
-    
-    *Note: These are general guidelines. Specific local standards may vary.*
-    """)
-
-# --- FOOTER ---
+# Footer text
 st.markdown("""
-<div class="cosmic-footer fade-in">
-    <h2 style="margin: 0 0 1rem 0; color: #0d47a1;">🌊 Bhagalpur Water Quality Intelligence</h2>
-    <p style="margin: 0.5rem 0; font-size: 1.1rem; color: #1565c0;">
-        Powered by Advanced LSTM Neural Networks | Real-time Environmental Monitoring
+<div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 2px solid rgba(66, 165, 245, 0.3);">
+    <h3 style="color: #0d47a1; margin-bottom: 1rem;">🌊 Bhagalpur Water Quality Intelligence System</h3>
+    <p style="font-size: 1.1rem; color: #1565c0; margin-bottom: 0.5rem;">
+        <strong>Powered by Advanced LSTM Neural Networks • Real-time Environmental Monitoring</strong>
     </p>
-    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: #42a5f5;">
-        🔬 Scientific Excellence • 🌍 Environmental Protection • 📊 Data-Driven Insights
+    <p style="color: #1976d2; opacity: 0.8;">
+        Protecting water resources through predictive analytics and continuous monitoring
     </p>
-    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid rgba(66, 165, 245, 0.3);">
-        <p style="margin: 0; font-size: 0.8rem; color: #64b5f6; opacity: 0.8;">
-            Last Updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 
-            Next Refresh: {(datetime.datetime.now() + datetime.timedelta(hours=6)).strftime('%H:%M')}
+    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(33, 150, 243, 0.1); border-radius: 12px; border: 1px solid rgba(66, 165, 245, 0.3);">
+        <p style="font-size: 0.9rem; color: #1565c0; margin: 0;">
+            🔬 <strong>Technical Specifications:</strong> LSTM Sequence Length: {SEQ_LEN} days • Prediction Horizon: {PRED_LEN} days • 
+            Parameters Monitored: {len(numeric_cols)} • Update Frequency: Real-time
         </p>
     </div>
 </div>
-""".format(datetime=datetime), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
