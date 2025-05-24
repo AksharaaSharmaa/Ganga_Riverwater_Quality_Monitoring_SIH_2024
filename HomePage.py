@@ -420,28 +420,28 @@ def get_scaler(df):
     return scaler
 
 def calculate_wqi(data):
-    # Simplified WQI calculation - you can modify this based on your standards
-    # This is a basic example - replace with your actual WQI calculation
-    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    # If data is a Series (single row), convert to DataFrame for select_dtypes
+    if isinstance(data, pd.Series):
+        data_df = data.to_frame().T
+    else:
+        data_df = data
+
+    numeric_cols = data_df.select_dtypes(include=[np.number]).columns
     if len(numeric_cols) > 0:
-        # Normalize values and calculate weighted average (simplified)
         normalized_values = []
         for col in numeric_cols:
-            val = data[col]
+            val = data[col] if isinstance(data, pd.Series) else data_df.iloc[0][col]
             # Simple normalization (you should use proper WQI standards)
             if col in ['pH']:
-                # pH should be around 7
                 normalized = 100 - abs(val - 7) * 10
             elif col in ['DO', 'Dissolved_Oxygen']:
-                # Higher DO is better
                 normalized = min(val * 10, 100)
             else:
-                # For other parameters, assume lower is better
                 normalized = max(100 - val, 0)
             normalized_values.append(max(0, min(100, normalized)))
-        
         return np.mean(normalized_values)
     return 75  # Default value
+
 
 def get_wqi_status(wqi):
     if wqi >= 90:
