@@ -4,5 +4,5 @@ numpy
 matplotlib
 seaborn
 plotly
-tensorflow
+tensorflow==2.15.0
 scikit-learn
