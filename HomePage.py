@@ -5,6 +5,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import datetime
+import seaborn
 
 # --- CUSTOM CSS FOR BLUE THEME ---
 st.markdown("""
