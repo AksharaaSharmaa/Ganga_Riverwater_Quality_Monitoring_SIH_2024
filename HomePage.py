@@ -5,6 +5,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import datetime
+import google.generativeai as genai
+import json
 
 # --- CUSTOM CSS FOR BLUE THEME ---
 st.markdown("""
@@ -38,6 +40,20 @@ st.markdown("""
     .st-emotion-cache-1qg05tj {
         color: #1e3a8a;
     }
+    .insight-container {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #1e3a8a;
+        margin: 10px 0;
+    }
+    .ai-response {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 15px;
+        border: 1px solid #e2e8f0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,6 +62,86 @@ SEQ_LEN = 10
 PRED_LEN = 5
 MODEL_PATH = 'bhagalpur_final_water_quality_forecasting_model.h5'
 DATA_PATH = 'Bhagalpur.csv'
+
+# Gemini API Key (Replace with your actual API key)
+GEMINI_API_KEY = "AIzaSyAldo6EIJngpc9TRS58sk3JOCC5ib4E858"  # Replace this with your actual Gemini API key
+
+# --- GEMINI AI SETUP ---
+@st.cache_resource
+def setup_gemini():
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        return model
+    except Exception as e:
+        st.error(f"Error setting up Gemini AI: {str(e)}")
+        return None
+
+def get_water_quality_insights(current_data, predicted_data, parameter_name):
+    """Generate AI insights using Gemini API"""
+    try:
+        model = setup_gemini()
+        if model is None:
+            return "AI insights unavailable - please check API configuration."
+        
+        # Prepare data summary for AI analysis
+        current_values = current_data.iloc[-5:].to_dict('records') if len(current_data) >= 5 else current_data.to_dict('records')
+        predicted_values = predicted_data.to_dict('records')
+        
+        prompt = f"""
+        As a water quality expert, analyze the following water quality data for Bhagalpur:
+
+        Current Recent Data (last 5 days):
+        {json.dumps(current_values, indent=2, default=str)}
+
+        Predicted Data (next 5 days):
+        {json.dumps(predicted_values, indent=2, default=str)}
+
+        Currently viewing parameter: {parameter_name}
+
+        Please provide:
+        1. Overall water quality assessment
+        2. Trend analysis for the selected parameter ({parameter_name})
+        3. Health and safety implications
+        4. Recommendations for water treatment or usage
+        5. Environmental factors that might be affecting these levels
+        6. Comparison with WHO/Indian water quality standards where applicable
+
+        Keep the response comprehensive but concise, focusing on actionable insights.
+        """
+
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Unable to generate AI insights: {str(e)}"
+
+def get_parameter_specific_insights(parameter_name, current_value, predicted_values):
+    """Get parameter-specific insights"""
+    try:
+        model = setup_gemini()
+        if model is None:
+            return "Parameter insights unavailable."
+        
+        prompt = f"""
+        Provide specific insights about {parameter_name} in water quality:
+        
+        Current value: {current_value:.2f}
+        Predicted values for next 5 days: {predicted_values.tolist()}
+        
+        Please explain:
+        1. What this parameter measures and its significance
+        2. Optimal range for safe drinking water
+        3. Health effects of current levels
+        4. What the predicted trend suggests
+        5. Immediate actions if levels are concerning
+        
+        Be specific and practical in your recommendations.
+        """
+
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Unable to generate parameter insights: {str(e)}"
 
 # --- LOAD MODEL AND SCALER ---
 @st.cache_resource
@@ -110,8 +206,6 @@ try:
 
     # --- MAIN APP SECTION ---
     with st.container():
-        st.subheader('🌊 Water Quality Forecast', divider='blue')
-        
         # Automatically use the latest 10 days as input window
         latest_date = df['Date'].max()
         start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
@@ -140,14 +234,14 @@ try:
                           columns=input_window.columns[1:], 
                           index=future_dates)
 
-    # --- VISUALIZATION ---
-    st.subheader('📈 5-Day Water Quality Forecast', divider='blue')
-
-    # Parameter selection
-    param = st.selectbox('Select Parameter to Visualize', 
+    # --- PARAMETER SELECTION ---
+    param = st.selectbox('Select Parameter to Analyze', 
                         pred_df.columns,
                         index=0,
-                        help="Choose which water quality parameter to display")
+                        help="Choose which water quality parameter to display and analyze")
+
+    # --- VISUALIZATION ---
+    st.subheader('📈 5-Day Prediction Analysis', divider='blue')
 
     # Create styled plot
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -177,7 +271,7 @@ try:
     # Plot aesthetics
     ax.set_xlabel('Date', fontsize=12, labelpad=10)
     ax.set_ylabel(param, fontsize=12, labelpad=10)
-    ax.set_title(f'{param} Forecast Comparison', 
+    ax.set_title(f'{param} Trend Analysis', 
                 fontsize=16, 
                 pad=20, 
                 color='#1e3a8a',
@@ -197,6 +291,40 @@ try:
     # Display plot
     st.pyplot(fig)
 
+    # --- AI INSIGHTS SECTION ---
+    st.subheader('🤖 AI-Powered Water Quality Insights', divider='blue')
+    
+    # Create two columns for different types of insights
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        with st.container():
+            st.markdown('<div class="insight-container">', unsafe_allow_html=True)
+            st.markdown("**🔍 Parameter-Specific Analysis**")
+            
+            with st.spinner("Analyzing parameter data..."):
+                current_param_value = input_window[param].iloc[-1]
+                predicted_param_values = pred_df[param].values
+                param_insights = get_parameter_specific_insights(param, current_param_value, predicted_param_values)
+            
+            st.markdown('<div class="ai-response">', unsafe_allow_html=True)
+            st.markdown(param_insights)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        with st.container():
+            st.markdown('<div class="insight-container">', unsafe_allow_html=True)
+            st.markdown("**📊 Overall Water Quality Assessment**")
+            
+            with st.spinner("Generating comprehensive insights..."):
+                comprehensive_insights = get_water_quality_insights(input_window, pred_df, param)
+            
+            st.markdown('<div class="ai-response">', unsafe_allow_html=True)
+            st.markdown(comprehensive_insights)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
     # --- DETAILED PREDICTION DATA ---
     st.subheader('📊 Detailed Forecast Data', divider='blue')
     with st.expander("🔍 Expand to View All Predicted Parameters"):
@@ -204,11 +332,34 @@ try:
             cmap='Blues', subset=pred_df.columns)
         st.dataframe(styled_df, use_container_width=True)
 
+    # --- QUICK INSIGHTS SUMMARY ---
+    st.subheader('⚡ Quick Insights Summary', divider='blue')
+    
+    # Generate quick summary insights
+    with st.spinner("Generating quick summary..."):
+        try:
+            model = setup_gemini()
+            if model:
+                quick_prompt = f"""
+                Provide 3 bullet points summarizing the key insights about {param} water quality parameter:
+                Current value: {input_window[param].iloc[-1]:.2f}
+                Trend: {'Increasing' if pred_df[param].iloc[-1] > input_window[param].iloc[-1] else 'Decreasing'}
+                
+                Make it concise and actionable.
+                """
+                
+                quick_response = model.generate_content(quick_prompt)
+                st.markdown(quick_response.text)
+            else:
+                st.info("Quick insights unavailable - check API configuration")
+        except:
+            st.info("Quick insights temporarily unavailable")
+
     # --- FOOTER ---
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #64748b; font-size: 0.9rem;">
-        Powered by LSTM Neural Network • Data Source: Bhagalpur Water Authority
+        Powered by LSTM Neural Network & Google Gemini AI • Data Source: Bhagalpur Water Authority
     </div>
     """, unsafe_allow_html=True)
 
@@ -218,3 +369,4 @@ except Exception as e:
     st.write("Expected files:")
     st.write("- bhagalpur_final_water_quality_forecasting_model.h5")
     st.write("- Bhagalpur.csv")
+    st.write("- Valid Gemini API key")
