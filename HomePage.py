@@ -19,27 +19,33 @@ st.markdown("""
     
     /* Root Variables for Consistent Theming */
     :root {
-        --primary-blue: #0f172a;
-        --secondary-blue: #1e293b;
+        --primary-blue: #1e293b;
+        --secondary-blue: #334155;
         --accent-blue: #3b82f6;
-        --light-blue: #dbeafe;
-        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        --gradient-warning: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        --gradient-danger: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
-        --glass-bg: rgba(255, 255, 255, 0.15);
-        --glass-border: rgba(255, 255, 255, 0.2);
-        --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.37);
-        --shadow-strong: 0 20px 40px rgba(0, 0, 0, 0.1);
-        --border-radius: 16px;
-        --border-radius-small: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --light-blue: #e0f2fe;
+        --ultra-light-blue: #f0f9ff;
+        --gradient-primary: linear-gradient(135deg, #a78bfa 0%, #06b6d4 100%);
+        --gradient-secondary: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        --gradient-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 20%, #cbd5e1 100%);
+        --glass-bg: rgba(255, 255, 255, 0.25);
+        --glass-border: rgba(255, 255, 255, 0.3);
+        --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.1);
+        --shadow-strong: 0 25px 50px rgba(0, 0, 0, 0.15);
+        --shadow-glow: 0 0 40px rgba(167, 139, 250, 0.3);
+        --border-radius: 20px;
+        --border-radius-small: 12px;
+        --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        --text-primary: #1e293b;
+        --text-secondary: #475569;
+        --text-light: #64748b;
     }
     
     /* Main App Container */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--gradient-bg);
         min-height: 100vh;
         position: relative;
         overflow-x: hidden;
@@ -53,23 +59,25 @@ st.markdown("""
         width: 100%;
         height: 100%;
         background: 
-            radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
+            radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 90% 70%, rgba(245, 158, 11, 0.08) 0%, transparent 50%);
         z-index: -1;
-        animation: float 20s ease-in-out infinite;
+        animation: float 25s ease-in-out infinite;
     }
     
     @keyframes float {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
-        33% { transform: translateY(-20px) rotate(1deg); }
-        66% { transform: translateY(10px) rotate(-1deg); }
+        25% { transform: translateY(-15px) rotate(0.5deg); }
+        50% { transform: translateY(10px) rotate(-0.5deg); }
+        75% { transform: translateY(-5px) rotate(0.3deg); }
     }
     
     /* Main Content Container */
     .main .block-container {
         padding: 2rem 1rem;
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
     }
     
@@ -78,59 +86,79 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
         font-weight: 700 !important;
         letter-spacing: -0.025em !important;
-        color: #ffffff !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        color: var(--text-primary) !important;
     }
     
     h1 {
         font-size: 3.5rem !important;
         text-align: center !important;
         margin-bottom: 2rem !important;
-        background: linear-gradient(135deg, #ffffff, #e0e7ff);
+        background: linear-gradient(135deg, #1e293b, #3b82f6, #06b6d4);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        animation: glow 2s ease-in-out infinite alternate;
-    }
-    
-    @keyframes glow {
-        from { filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3)); }
-        to { filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.5)); }
-    }
-    
-    h2 {
-        font-size: 2rem !important;
-        margin: 2rem 0 1rem 0 !important;
+        animation: glow 3s ease-in-out infinite alternate;
         position: relative;
     }
     
-    h2::after {
+    h1::after {
         content: '';
         position: absolute;
-        bottom: -8px;
-        left: 0;
-        width: 60px;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;
         height: 4px;
         background: var(--gradient-primary);
         border-radius: 2px;
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes glow {
+        from { filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.3)); }
+        to { filter: drop-shadow(0 0 35px rgba(6, 182, 212, 0.4)); }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 1; }
+        50% { transform: translateX(-50%) scaleX(1.2); opacity: 0.8; }
+    }
+    
+    h2 {
+        font-size: 2.2rem !important;
+        margin: 2.5rem 0 1.5rem 0 !important;
+        position: relative;
+        color: var(--text-primary) !important;
+    }
+    
+    h2::before {
+        content: '';
+        position: absolute;
+        left: -20px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 6px;
+        height: 40px;
+        background: var(--gradient-primary);
+        border-radius: 3px;
     }
     
     h3 {
-        font-size: 1.5rem !important;
-        color: #f8fafc !important;
+        font-size: 1.6rem !important;
+        color: var(--text-secondary) !important;
         margin: 1.5rem 0 1rem 0 !important;
     }
     
-    /* Glass Card Styling */
+    /* Enhanced Glass Card Styling */
     .glass-card {
         background: var(--glass-bg);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
         border: 1px solid var(--glass-border);
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-soft);
-        padding: 2rem;
-        margin: 1rem 0;
+        padding: 2.5rem;
+        margin: 1.5rem 0;
         transition: var(--transition);
         position: relative;
         overflow: hidden;
@@ -143,258 +171,383 @@ st.markdown("""
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
         transition: var(--transition);
     }
     
     .glass-card:hover::before {
         left: 100%;
+        transition: 0.8s;
     }
     
     .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(31, 38, 135, 0.5);
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-strong);
+        border-color: rgba(167, 139, 250, 0.3);
     }
     
-    /* Metrics Styling */
+    /* Enhanced Metrics Styling */
     .stMetric {
         background: var(--glass-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
+        backdrop-filter: blur(25px) !important;
+        -webkit-backdrop-filter: blur(25px) !important;
         border: 1px solid var(--glass-border) !important;
         border-radius: var(--border-radius) !important;
-        padding: 1.5rem !important;
+        padding: 2rem !important;
         text-align: center !important;
         transition: var(--transition) !important;
         position: relative !important;
         overflow: hidden !important;
+        box-shadow: var(--shadow-soft) !important;
+    }
+    
+    .stMetric::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--gradient-primary);
+        opacity: 0;
+        transition: var(--transition);
     }
     
     .stMetric:hover {
-        transform: translateY(-3px) !important;
+        transform: translateY(-5px) scale(1.02) !important;
         box-shadow: var(--shadow-strong) !important;
     }
     
+    .stMetric:hover::after {
+        opacity: 1;
+    }
+    
     .stMetric > div {
-        color: #ffffff !important;
+        color: var(--text-primary) !important;
     }
     
     .stMetric [data-testid="metric-container"] > div:first-child {
-        font-size: 1rem !important;
-        font-weight: 500 !important;
-        color: #e2e8f0 !important;
-        margin-bottom: 0.5rem !important;
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        margin-bottom: 0.8rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     
     .stMetric [data-testid="metric-container"] > div:nth-child(2) {
-        font-size: 2.5rem !important;
+        font-size: 3rem !important;
         font-weight: 800 !important;
-        color: #ffffff !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+        color: var(--text-primary) !important;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
     
-    /* Input Elements */
+    /* Enhanced Input Elements */
     .stSelectbox, .stDateInput, .stNumberInput {
         background: var(--glass-bg) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
-        border-radius: var(--border-radius) !important;
+        border-radius: var(--border-radius-small) !important;
         border: 1px solid var(--glass-border) !important;
         padding: 1rem !important;
         margin: 0.5rem 0 !important;
         transition: var(--transition) !important;
+        box-shadow: var(--shadow-soft) !important;
     }
     
-    .stSelectbox > div > div {
-        background: transparent !important;
-        border: none !important;
-        color: #ffffff !important;
+    .stSelectbox:hover, .stDateInput:hover, .stNumberInput:hover {
+        border-color: rgba(167, 139, 250, 0.4) !important;
+        box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1) !important;
     }
     
-    .stSelectbox > div > div > div {
-        background: rgba(15, 23, 42, 0.9) !important;
-        color: #ffffff !important;
-        border: 1px solid var(--glass-border) !important;
-        border-radius: var(--border-radius-small) !important;
-    }
-    
-    /* Buttons */
+    /* Enhanced Buttons */
     .stButton > button {
         background: var(--gradient-primary) !important;
         color: #ffffff !important;
         border: none !important;
         border-radius: var(--border-radius-small) !important;
-        padding: 0.75rem 2rem !important;
+        padding: 1rem 2.5rem !important;
         font-weight: 600 !important;
-        font-size: 1rem !important;
+        font-size: 1.1rem !important;
         transition: var(--transition) !important;
         box-shadow: var(--shadow-soft) !important;
         position: relative !important;
         overflow: hidden !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }
+    
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: var(--transition);
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px) !important;
+        transform: translateY(-3px) !important;
         box-shadow: var(--shadow-strong) !important;
     }
     
-    .stButton > button:active {
-        transform: translateY(0) !important;
+    .stButton > button:hover::before {
+        left: 100%;
     }
     
-    /* Tabs */
+    /* Enhanced Tabs */
     .stTabs [data-baseweb="tab-list"] {
         background: var(--glass-bg);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         border-radius: var(--border-radius);
         padding: 0.5rem;
-        margin: 1rem 0;
+        margin: 1.5rem 0;
         border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-soft);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent !important;
-        color: #e2e8f0 !important;
+        color: var(--text-secondary) !important;
         border-radius: var(--border-radius-small) !important;
-        font-weight: 500 !important;
-        padding: 0.75rem 1.5rem !important;
+        font-weight: 600 !important;
+        padding: 1rem 2rem !important;
         margin: 0 0.25rem !important;
         transition: var(--transition) !important;
         border: none !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        font-size: 0.9rem !important;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(255, 255, 255, 0.1) !important;
-        color: #ffffff !important;
+        background: rgba(167, 139, 250, 0.1) !important;
+        color: var(--text-primary) !important;
+        transform: translateY(-2px) !important;
     }
     
     .stTabs [aria-selected="true"] {
         background: var(--gradient-primary) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+        box-shadow: var(--shadow-glow) !important;
+        transform: translateY(-2px) !important;
     }
     
-    /* DataFrames */
+    /* Enhanced DataFrames */
     .stDataFrame {
         background: var(--glass-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
+        backdrop-filter: blur(25px) !important;
+        -webkit-backdrop-filter: blur(25px) !important;
         border-radius: var(--border-radius) !important;
         border: 1px solid var(--glass-border) !important;
         overflow: hidden !important;
         box-shadow: var(--shadow-soft) !important;
+        margin: 1.5rem 0 !important;
     }
     
     .stDataFrame table {
         background: transparent !important;
-        color: #ffffff !important;
+        color: var(--text-primary) !important;
     }
     
     .stDataFrame th {
-        background: rgba(15, 23, 42, 0.7) !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
+        background: rgba(167, 139, 250, 0.1) !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
         border: none !important;
-        padding: 1rem !important;
+        padding: 1.2rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        font-size: 0.9rem !important;
     }
     
     .stDataFrame td {
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        padding: 0.75rem 1rem !important;
-        color: #e2e8f0 !important;
-    }
-    
-    /* Plotly Charts Container */
-    .js-plotly-plot {
-        background: var(--glass-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-radius: var(--border-radius) !important;
-        border: 1px solid var(--glass-border) !important;
-        padding: 1rem !important;
-        margin: 1rem 0 !important;
-        box-shadow: var(--shadow-soft) !important;
+        border: 1px solid rgba(167, 139, 250, 0.1) !important;
+        padding: 1rem 1.2rem !important;
+        color: var(--text-secondary) !important;
         transition: var(--transition) !important;
     }
     
-    .js-plotly-plot:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-strong);
+    .stDataFrame tr:hover td {
+        background: rgba(167, 139, 250, 0.05) !important;
+        color: var(--text-primary) !important;
     }
     
-    /* Sidebar */
+    /* ENHANCED PLOTLY CHARTS - The Star of the Show */
+    .js-plotly-plot {
+        background: var(--glass-bg) !important;
+        backdrop-filter: blur(30px) !important;
+        -webkit-backdrop-filter: blur(30px) !important;
+        border-radius: var(--border-radius) !important;
+        border: 1px solid var(--glass-border) !important;
+        padding: 1.5rem !important;
+        margin: 2rem 0 !important;
+        box-shadow: var(--shadow-soft) !important;
+        transition: var(--transition) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .js-plotly-plot::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+    
+    .js-plotly-plot:hover {
+        transform: translateY(-5px) scale(1.01);
+        box-shadow: var(--shadow-strong);
+        border-color: rgba(167, 139, 250, 0.4);
+    }
+    
+    /* Plotly Chart Enhancements */
+    .plotly .modebar {
+        background: var(--glass-bg) !important;
+        border-radius: var(--border-radius-small) !important;
+        border: 1px solid var(--glass-border) !important;
+        box-shadow: var(--shadow-soft) !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .plotly .modebar-btn {
+        color: var(--text-secondary) !important;
+        transition: var(--transition) !important;
+    }
+    
+    .plotly .modebar-btn:hover {
+        background: var(--gradient-primary) !important;
+        color: white !important;
+        transform: scale(1.1) !important;
+    }
+    
+    /* Chart Title Styling */
+    .js-plotly-plot .gtitle {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 1.4rem !important;
+        color: var(--text-primary) !important;
+    }
+    
+    /* Chart Background */
+    .js-plotly-plot .plotly-graph-div {
+        background: transparent !important;
+    }
+    
+    /* Legend Styling */
+    .js-plotly-plot .legend {
+        background: var(--glass-bg) !important;
+        border: 1px solid var(--glass-border) !important;
+        border-radius: var(--border-radius-small) !important;
+        backdrop-filter: blur(10px) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    /* Sidebar Enhancement */
     .css-1d391kg {
-        background: rgba(15, 23, 42, 0.9) !important;
-        backdrop-filter: blur(20px) !important;
+        background: var(--glass-bg) !important;
+        backdrop-filter: blur(25px) !important;
+        border-right: 1px solid var(--glass-border) !important;
     }
     
     .sidebar .sidebar-content {
         background: transparent !important;
-        padding: 1rem !important;
+        padding: 1.5rem !important;
     }
     
-    /* Condition Status Cards */
+    /* Enhanced Condition Status Cards */
     .condition-good {
         background: var(--gradient-success) !important;
         color: #ffffff !important;
-        padding: 1rem 1.5rem !important;
+        padding: 1.5rem 2rem !important;
         border-radius: var(--border-radius) !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         text-align: center !important;
-        margin: 0.5rem !important;
+        margin: 1rem !important;
         box-shadow: var(--shadow-soft) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         transition: var(--transition) !important;
         position: relative !important;
         overflow: hidden !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     
     .condition-moderate {
         background: var(--gradient-warning) !important;
         color: #ffffff !important;
-        padding: 1rem 1.5rem !important;
+        padding: 1.5rem 2rem !important;
         border-radius: var(--border-radius) !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         text-align: center !important;
-        margin: 0.5rem !important;
+        margin: 1rem !important;
         box-shadow: var(--shadow-soft) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         transition: var(--transition) !important;
         position: relative !important;
         overflow: hidden !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     
     .condition-bad {
         background: var(--gradient-danger) !important;
         color: #ffffff !important;
-        padding: 1rem 1.5rem !important;
+        padding: 1.5rem 2rem !important;
         border-radius: var(--border-radius) !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         text-align: center !important;
-        margin: 0.5rem !important;
+        margin: 1rem !important;
         box-shadow: var(--shadow-soft) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         transition: var(--transition) !important;
         position: relative !important;
         overflow: hidden !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }
+    
+    .condition-good::before, .condition-moderate::before, .condition-bad::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: var(--transition);
     }
     
     .condition-good:hover, .condition-moderate:hover, .condition-bad:hover {
-        transform: translateY(-3px) scale(1.02) !important;
+        transform: translateY(-5px) scale(1.05) !important;
         box-shadow: var(--shadow-strong) !important;
     }
     
-    /* Insight Containers */
+    .condition-good:hover::before, .condition-moderate:hover::before, .condition-bad:hover::before {
+        left: 100%;
+        transition: 0.6s;
+    }
+    
+    /* Enhanced Insight Containers */
     .insight-container {
         background: var(--glass-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
+        backdrop-filter: blur(25px) !important;
+        -webkit-backdrop-filter: blur(25px) !important;
         border-radius: var(--border-radius) !important;
-        padding: 2rem !important;
+        padding: 2.5rem !important;
         box-shadow: var(--shadow-soft) !important;
         border: 1px solid var(--glass-border) !important;
-        margin: 1rem 0 !important;
+        margin: 2rem 0 !important;
         position: relative !important;
         overflow: hidden !important;
         transition: var(--transition) !important;
@@ -406,34 +559,44 @@ st.markdown("""
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
+        height: 5px;
         background: var(--gradient-primary);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
     }
     
     .insight-container:hover {
-        transform: translateY(-5px);
+        transform: translateY(-8px);
         box-shadow: var(--shadow-strong);
+        border-color: rgba(167, 139, 250, 0.3);
     }
     
     .ai-response {
-        background: rgba(248, 250, 252, 0.1) !important;
+        background: rgba(248, 250, 252, 0.5) !important;
         border-radius: var(--border-radius-small) !important;
-        padding: 1.5rem !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #f1f5f9 !important;
-        line-height: 1.6 !important;
-        font-size: 0.95rem !important;
+        padding: 2rem !important;
+        border: 1px solid rgba(167, 139, 250, 0.2) !important;
+        color: var(--text-secondary) !important;
+        line-height: 1.7 !important;
+        font-size: 1rem !important;
+        backdrop-filter: blur(10px) !important;
     }
     
-    /* Expander */
+    /* Enhanced Expander */
     .streamlit-expanderHeader {
         background: var(--glass-bg) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
         border-radius: var(--border-radius) !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
         border: 1px solid var(--glass-border) !important;
+        padding: 1rem 1.5rem !important;
+        transition: var(--transition) !important;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: rgba(167, 139, 250, 0.1) !important;
+        transform: translateY(-2px) !important;
     }
     
     .streamlit-expanderContent {
@@ -443,75 +606,115 @@ st.markdown("""
         border: 1px solid var(--glass-border) !important;
         border-top: none !important;
         border-radius: 0 0 var(--border-radius) var(--border-radius) !important;
+        padding: 1.5rem !important;
     }
     
-    /* Spinner */
-    .stSpinner > div {
-        border-top-color: #3b82f6 !important;
-        border-right-color: #3b82f6 !important;
-    }
-    
-    /* Info, Warning, Error, Success */
+    /* Enhanced Alerts */
     .stAlert {
         background: var(--glass-bg) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
         border-radius: var(--border-radius) !important;
         border: 1px solid var(--glass-border) !important;
-        color: #ffffff !important;
+        color: var(--text-primary) !important;
+        box-shadow: var(--shadow-soft) !important;
+        margin: 1rem 0 !important;
     }
     
-    /* Divider */
+    /* Divider Enhancement */
     hr {
         border: none !important;
-        height: 2px !important;
+        height: 3px !important;
         background: var(--gradient-primary) !important;
-        border-radius: 1px !important;
-        margin: 2rem 0 !important;
+        border-radius: 2px !important;
+        margin: 3rem 0 !important;
+        box-shadow: var(--shadow-soft) !important;
     }
     
     /* Footer */
     .footer {
         text-align: center;
-        padding: 2rem;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 0.9rem;
-        margin-top: 3rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 3rem 2rem;
+        color: var(--text-light);
+        font-size: 1rem;
+        margin-top: 4rem;
+        border-top: 1px solid var(--glass-border);
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
     }
     
-    /* Floating Action Button */
+    /* Enhanced Floating Action Button */
     .fab {
         position: fixed;
         bottom: 2rem;
         right: 2rem;
-        width: 60px;
-        height: 60px;
+        width: 70px;
+        height: 70px;
         border-radius: 50%;
         background: var(--gradient-primary);
         box-shadow: var(--shadow-strong);
         border: none;
         color: white;
-        font-size: 1.5rem;
+        font-size: 1.8rem;
         cursor: pointer;
         transition: var(--transition);
         z-index: 1000;
+        backdrop-filter: blur(10px);
     }
     
     .fab:hover {
-        transform: scale(1.1) rotate(10deg);
+        transform: scale(1.15) rotate(15deg);
+        box-shadow: var(--shadow-glow);
     }
     
-    /* Loading Animation */
+    /* Enhanced Loading Animation */
     .loading-shimmer {
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.3), transparent);
         background-size: 200% 100%;
-        animation: shimmer 2s infinite;
+        animation: shimmer 1.5s infinite;
     }
     
     @keyframes shimmer {
         0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
+    }
+    
+    /* Particle Effect */
+    .particle-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1;
+    }
+    
+    .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: rgba(167, 139, 250, 0.4);
+        border-radius: 50%;
+        animation: particle-float 15s infinite linear;
+    }
+    
+    @keyframes particle-float {
+        0% {
+            transform: translateY(100vh) rotate(0deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-100vh) rotate(360deg);
+            opacity: 0;
+        }
     }
     
     /* Mobile Responsiveness */
@@ -524,53 +727,65 @@ st.markdown("""
             font-size: 2.5rem !important;
         }
         
-        .glass-card {
-            padding: 1rem;
-            margin: 0.5rem 0;
+        h2 {
+            font-size: 1.8rem !important;
+        }
+        
+        .glass-card, .insight-container {
+            padding: 1.5rem;
+            margin: 1rem 0;
         }
         
         .stMetric {
-            padding: 1rem !important;
+            padding: 1.5rem !important;
         }
         
         .fab {
             bottom: 1rem;
             right: 1rem;
-            width: 50px;
-            height: 50px;
-            font-size: 1.2rem;
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .js-plotly-plot {
+            padding: 1rem !important;
         }
     }
     
-    /* Scroll Bar */
+    /* Enhanced Scroll Bar */
     ::-webkit-scrollbar {
-        width: 8px;
+        width: 12px;
     }
     
     ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
+        background: rgba(167, 139, 250, 0.1);
+        border-radius: 6px;
     }
     
     ::-webkit-scrollbar-thumb {
         background: var(--gradient-primary);
-        border-radius: 4px;
+        border-radius: 6px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
     }
     
     ::-webkit-scrollbar-thumb:hover {
-        background: var(--gradient-secondary);
+        background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+        background-clip: padding-box;
     }
     
     /* Selection */
     ::selection {
-        background: rgba(59, 130, 246, 0.3);
-        color: white;
+        background: rgba(167, 139, 250, 0.3);
+        color: var(--text-primary);
     }
     
     /* Focus States */
     button:focus, input:focus, select:focus {
-        outline: 2px solid #3b82f6 !important;
+        outline: 3px solid rgba(167, 139, 250, 0.5) !important;
         outline-offset: 2px !important;
+        box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2) !important;
     }
     
     /* Print Styles */
