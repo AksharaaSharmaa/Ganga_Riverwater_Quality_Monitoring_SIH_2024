@@ -110,30 +110,19 @@ try:
 
     # --- MAIN APP SECTION ---
     with st.container():
-        st.subheader('🌊 Prediction Parameters', divider='blue')
+        st.subheader('🌊 Water Quality Forecast', divider='blue')
         
-        # Date selection
+        # Automatically use the latest 10 days as input window
         latest_date = df['Date'].max()
-        min_date = df['Date'].min() + pd.Timedelta(days=SEQ_LEN-1)
-        default_start = latest_date - pd.Timedelta(days=SEQ_LEN-1)
-        start_date = st.date_input('📅 Select start date of 10-day window', 
-                                  value=default_start, 
-                                  min_value=min_date, 
-                                  max_value=latest_date)
+        start_date = latest_date - pd.Timedelta(days=SEQ_LEN-1)
         
-        # Input window validation
-        input_window = df[(df['Date'] >= pd.Timestamp(start_date)) & 
-                         (df['Date'] <= pd.Timestamp(start_date) + pd.Timedelta(days=SEQ_LEN-1))]
+        # Input window
+        input_window = df[(df['Date'] >= start_date) & 
+                         (df['Date'] <= latest_date)]
         
         if input_window.shape[0] != SEQ_LEN:
-            st.warning(f"⚠️ Please select a start date with 10 consecutive days of available data")
+            st.error(f"⚠️ Insufficient data for forecasting. Need at least {SEQ_LEN} consecutive days.")
             st.stop()
-
-    # --- DATA DISPLAY ---
-    with st.expander("🔍 View Selected Input Data"):
-        st.dataframe(input_window.style.format(subset=input_window.columns[1:], 
-                                              formatter="{:.2f}"), 
-                    height=300)
 
     # --- MODEL PREDICTION ---
     X_input = scaler.transform(input_window.drop(columns=['Date']).values)
@@ -160,7 +149,7 @@ try:
                         index=0,
                         help="Choose which water quality parameter to display")
 
-    # Create styled plot - FIXED: Remove seaborn style
+    # Create styled plot
     fig, ax = plt.subplots(figsize=(12, 6))
     
     # Manual styling to replace seaborn
