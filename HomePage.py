@@ -308,7 +308,7 @@ def create_condition_summary_table(pred_df, future_dates):
 def setup_gemini():
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         return model
     except Exception as e:
         st.error(f"Error setting up Gemini AI: {str(e)}")
