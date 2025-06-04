@@ -50,15 +50,27 @@ DATA_PATH = 'Bhagalpur.csv'
 # --- LOAD MODEL AND SCALER ---
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model(MODEL_PATH)
+    try:
+        return tf.keras.models.load_model(MODEL_PATH)
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        st.stop()
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv(DATA_PATH, parse_dates=['Date'], dayfirst=True)
-    df = df.sort_values('Date').reset_index(drop=True)
-    df = df.drop(columns=['Quality'])
-    df = df.interpolate(method='linear').bfill().ffill()
-    return df
+    try:
+        df = pd.read_csv(DATA_PATH, parse_dates=['Date'], dayfirst=True)
+        df = df.sort_values('Date').reset_index(drop=True)
+        
+        # Check if 'Quality' column exists before dropping
+        if 'Quality' in df.columns:
+            df = df.drop(columns=['Quality'])
+        
+        df = df.interpolate(method='linear').bfill().ffill()
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        st.stop()
 
 @st.cache_resource
 def get_scaler(df):
@@ -69,127 +81,151 @@ def get_scaler(df):
 # --- STREAMLIT APP LAYOUT ---
 st.markdown("<h1>Bhagalpur Water Quality Forecasting</h1>", unsafe_allow_html=True)
 
-# Load data and model
-df = load_data()
-scaler = get_scaler(df)
-model = load_model()
-
-# --- WQI DISPLAY ---
-with st.container():
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.subheader("Current WQI")
-        # Assuming WQI is one of your parameters - adjust column name if needed
-        current_wqi = df.iloc[-1]['WQI']  # Replace 'WQI' with actual column name
-        st.metric(label="", value=f"{current_wqi:.2f}", 
-                 help="Latest Water Quality Index measurement")
-    with col2:
-        st.write("")  # Spacer
-
-# --- MAIN APP SECTION ---
-with st.container():
-    st.subheader('🌊 Prediction Parameters', divider='blue')
+try:
+    # Load data and model
+    df = load_data()
+    scaler = get_scaler(df)
+    model = load_model()
     
-    # Date selection
-    latest_date = df['Date'].max()
-    min_date = df['Date'].min() + pd.Timedelta(days=SEQ_LEN-1)
-    default_start = latest_date - pd.Timedelta(days=SEQ_LEN-1)
-    start_date = st.date_input('📅 Select start date of 10-day window', 
-                              value=default_start, 
-                              min_value=min_date, 
-                              max_value=latest_date)
+    # --- WQI DISPLAY ---
+    with st.container():
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.subheader("Current WQI")
+            # Check if WQI column exists, otherwise use the first numeric column
+            wqi_columns = [col for col in df.columns if 'WQI' in col.upper()]
+            if wqi_columns:
+                current_wqi = df.iloc[-1][wqi_columns[0]]
+                st.metric(label="", value=f"{current_wqi:.2f}", 
+                         help="Latest Water Quality Index measurement")
+            else:
+                # Use the first numeric column if WQI is not found
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                if len(numeric_cols) > 0:
+                    current_value = df.iloc[-1][numeric_cols[0]]
+                    st.metric(label=numeric_cols[0], value=f"{current_value:.2f}", 
+                             help=f"Latest {numeric_cols[0]} measurement")
+        with col2:
+            st.write("")  # Spacer
+
+    # --- MAIN APP SECTION ---
+    with st.container():
+        st.subheader('🌊 Prediction Parameters', divider='blue')
+        
+        # Date selection
+        latest_date = df['Date'].max()
+        min_date = df['Date'].min() + pd.Timedelta(days=SEQ_LEN-1)
+        default_start = latest_date - pd.Timedelta(days=SEQ_LEN-1)
+        start_date = st.date_input('📅 Select start date of 10-day window', 
+                                  value=default_start, 
+                                  min_value=min_date, 
+                                  max_value=latest_date)
+        
+        # Input window validation
+        input_window = df[(df['Date'] >= pd.Timestamp(start_date)) & 
+                         (df['Date'] <= pd.Timestamp(start_date) + pd.Timedelta(days=SEQ_LEN-1))]
+        
+        if input_window.shape[0] != SEQ_LEN:
+            st.warning(f"⚠️ Please select a start date with 10 consecutive days of available data")
+            st.stop()
+
+    # --- DATA DISPLAY ---
+    with st.expander("🔍 View Selected Input Data"):
+        st.dataframe(input_window.style.format(subset=input_window.columns[1:], 
+                                              formatter="{:.2f}"), 
+                    height=300)
+
+    # --- MODEL PREDICTION ---
+    X_input = scaler.transform(input_window.drop(columns=['Date']).values)
+    X_input = X_input.reshape(1, SEQ_LEN, -1)
+
+    prediction = model.predict(X_input)
+    prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
+    prediction_orig = scaler.inverse_transform(prediction_reshaped)
+
+    # Prepare prediction dataframe
+    future_dates = pd.date_range(input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
+                                periods=PRED_LEN, 
+                                freq='D')
+    pred_df = pd.DataFrame(prediction_orig, 
+                          columns=input_window.columns[1:], 
+                          index=future_dates)
+
+    # --- VISUALIZATION ---
+    st.subheader('📈 5-Day Water Quality Forecast', divider='blue')
+
+    # Parameter selection
+    param = st.selectbox('Select Parameter to Visualize', 
+                        pred_df.columns,
+                        index=0,
+                        help="Choose which water quality parameter to display")
+
+    # Create styled plot - FIXED: Remove seaborn style
+    fig, ax = plt.subplots(figsize=(12, 6))
     
-    # Input window validation
-    input_window = df[(df['Date'] >= pd.Timestamp(start_date)) & 
-                     (df['Date'] <= pd.Timestamp(start_date) + pd.Timedelta(days=SEQ_LEN-1))]
+    # Manual styling to replace seaborn
+    ax.grid(True, linestyle='--', alpha=0.6, color='gray')
+    ax.set_facecolor('#f0f9ff')
+    fig.patch.set_facecolor('white')
     
-    if input_window.shape[0] != SEQ_LEN:
-        st.warning(f"⚠️ Please select a start date with 10 consecutive days of available data")
-        st.stop()
+    # Plot historical data
+    ax.plot(input_window['Date'], input_window[param], 
+           marker='o', 
+           markersize=8,
+           linewidth=2,
+           color='#1e3a8a',
+           label='Historical Data')
 
-# --- DATA DISPLAY ---
-with st.expander("🔍 View Selected Input Data"):
-    st.dataframe(input_window.style.format(subset=input_window.columns[1:], 
-                                          formatter="{:.2f}"), 
-                height=300)
+    # Plot predictions
+    ax.plot(future_dates, pred_df[param], 
+           marker='o', 
+           markersize=8,
+           linewidth=2,
+           linestyle='--',
+           color='#60a5fa',
+           label='5-Day Forecast')
 
-# --- MODEL PREDICTION ---
-X_input = scaler.transform(input_window.drop(columns=['Date']).values)
-X_input = X_input.reshape(1, SEQ_LEN, -1)
+    # Plot aesthetics
+    ax.set_xlabel('Date', fontsize=12, labelpad=10)
+    ax.set_ylabel(param, fontsize=12, labelpad=10)
+    ax.set_title(f'{param} Forecast Comparison', 
+                fontsize=16, 
+                pad=20, 
+                color='#1e3a8a',
+                fontweight='bold')
+    ax.legend(frameon=True, 
+             facecolor='white', 
+             edgecolor='#e5e7eb',
+             fontsize=10)
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    
+    # Improve date formatting
+    fig.autofmt_xdate()
+    
+    # Add some padding to the plot
+    plt.tight_layout()
 
-prediction = model.predict(X_input)
-prediction_reshaped = prediction.reshape(PRED_LEN, X_input.shape[2])
-prediction_orig = scaler.inverse_transform(prediction_reshaped)
+    # Display plot
+    st.pyplot(fig)
 
-# Prepare prediction dataframe
-future_dates = pd.date_range(input_window['Date'].iloc[-1] + pd.Timedelta(days=1), 
-                            periods=PRED_LEN, 
-                            freq='D')
-pred_df = pd.DataFrame(prediction_orig, 
-                      columns=input_window.columns[1:], 
-                      index=future_dates)
+    # --- DETAILED PREDICTION DATA ---
+    st.subheader('📊 Detailed Forecast Data', divider='blue')
+    with st.expander("🔍 Expand to View All Predicted Parameters"):
+        styled_df = pred_df.style.format(formatter="{:.2f}").background_gradient(
+            cmap='Blues', subset=pred_df.columns)
+        st.dataframe(styled_df, use_container_width=True)
 
-# --- VISUALIZATION ---
-st.subheader('📈 5-Day Water Quality Forecast', divider='blue')
+    # --- FOOTER ---
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #64748b; font-size: 0.9rem;">
+        Powered by LSTM Neural Network • Data Source: Bhagalpur Water Authority
+    </div>
+    """, unsafe_allow_html=True)
 
-# Parameter selection
-param = st.selectbox('Select Parameter to Visualize', 
-                    pred_df.columns,
-                    index=0,
-                    help="Choose which water quality parameter to display")
-
-# Create styled plot
-plt.style.use('seaborn')
-fig, ax = plt.subplots(figsize=(12, 6))
-ax.grid(True, linestyle='--', alpha=0.6)
-ax.set_facecolor('#f0f9ff')
-
-# Plot historical data
-ax.plot(input_window['Date'], input_window[param], 
-       marker='o', 
-       markersize=8,
-       linewidth=2,
-       color='#1e3a8a',
-       label='Historical Data')
-
-# Plot predictions
-ax.plot(future_dates, pred_df[param], 
-       marker='o', 
-       markersize=8,
-       linewidth=2,
-       linestyle='--',
-       color='#60a5fa',
-       label='5-Day Forecast')
-
-# Plot aesthetics
-ax.set_xlabel('Date', fontsize=12, labelpad=10)
-ax.set_ylabel(param, fontsize=12, labelpad=10)
-ax.set_title(f'{param} Forecast Comparison', 
-            fontsize=16, 
-            pad=20, 
-            color='#1e3a8a',
-            fontweight='bold')
-ax.legend(frameon=True, 
-         facecolor='white', 
-         edgecolor='#e5e7eb',
-         fontsize=10)
-ax.tick_params(axis='both', which='major', labelsize=10)
-fig.autofmt_xdate()
-
-# Display plot
-st.pyplot(fig)
-
-# --- DETAILED PREDICTION DATA ---
-st.subheader('📊 Detailed Forecast Data', divider='blue')
-with st.expander("🔍 Expand to View All Predicted Parameters"):
-    styled_df = pred_df.style.format(formatter="{:.2f}").background_gradient(
-        cmap='Blues', subset=pred_df.columns)
-    st.dataframe(styled_df, use_container_width=True)
-
-# --- FOOTER ---
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #64748b; font-size: 0.9rem;">
-    Powered by LSTM Neural Network • Data Source: Bhagalpur Water Authority
-</div>
-""", unsafe_allow_html=True)
+except Exception as e:
+    st.error(f"An error occurred: {str(e)}")
+    st.write("Please check that your model file and data file are in the correct location.")
+    st.write("Expected files:")
+    st.write("- bhagalpur_final_water_quality_forecasting_model.h5")
+    st.write("- Bhagalpur.csv")
