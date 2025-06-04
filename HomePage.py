@@ -176,11 +176,14 @@ def create_all_parameters_condition_overview(pred_df, future_dates):
     for param in pred_df.columns:
         for i, (date, value) in enumerate(zip(future_dates, pred_df[param].values)):
             condition, _ = get_parameter_condition(param, value)
+            # Normalize size values to be positive (add offset and scale)
+            normalized_size = abs(value) + 1  # Ensure positive values
             all_conditions.append({
                 'Parameter': param,
                 'Date': date.strftime('%Y-%m-%d'),
                 'Day': f'Day {i+1}',
                 'Value': value,
+                'Size': normalized_size,
                 'Condition': condition
             })
     
@@ -192,10 +195,11 @@ def create_all_parameters_condition_overview(pred_df, future_dates):
         x='Day', 
         y='Parameter',
         color='Condition',
-        size='Value',
+        size='Size',
         color_discrete_map={'Good': '#10b981', 'Moderate': '#f59e0b', 'Bad': '#ef4444'},
         title='Water Quality Conditions - All Parameters (5-Day Forecast)',
-        hover_data=['Value', 'Date']
+        hover_data=['Value', 'Date'],
+        size_max=20
     )
     
     fig.update_layout(
