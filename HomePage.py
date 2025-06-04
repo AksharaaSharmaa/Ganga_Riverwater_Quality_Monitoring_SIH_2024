@@ -7,6 +7,9 @@ from sklearn.preprocessing import MinMaxScaler
 import datetime
 import google.generativeai as genai
 import json
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # --- CUSTOM CSS FOR BLUE THEME ---
 st.markdown("""
@@ -54,6 +57,33 @@ st.markdown("""
         padding: 15px;
         border: 1px solid #e2e8f0;
     }
+    .condition-good {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        text-align: center;
+        margin: 2px;
+    }
+    .condition-moderate {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        text-align: center;
+        margin: 2px;
+    }
+    .condition-bad {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        text-align: center;
+        margin: 2px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -64,14 +94,154 @@ MODEL_PATH = 'bhagalpur_final_water_quality_forecasting_model.h5'
 DATA_PATH = 'Bhagalpur.csv'
 
 # Gemini API Key (Replace with your actual API key)
-GEMINI_API_KEY = "AIzaSyAldo6EIJngpc9TRS58sk3JOCC5ib4E858"  # Replace this with your actual Gemini API key
+GEMINI_API_KEY = "your_gemini_api_key_here"  # Replace this with your actual Gemini API key
+
+# --- WATER QUALITY PARAMETER THRESHOLDS ---
+# Define standard thresholds for common water quality parameters
+PARAMETER_THRESHOLDS = {
+    'pH': {'good': (6.5, 8.5), 'moderate': (6.0, 9.0), 'unit': 'pH units'},
+    'DO': {'good': (6, 20), 'moderate': (4, 6), 'unit': 'mg/L'},
+    'BOD': {'good': (0, 3), 'moderate': (3, 6), 'unit': 'mg/L'},
+    'COD': {'good': (0, 10), 'moderate': (10, 20), 'unit': 'mg/L'},
+    'Turbidity': {'good': (0, 5), 'moderate': (5, 25), 'unit': 'NTU'},
+    'TDS': {'good': (0, 500), 'moderate': (500, 1000), 'unit': 'mg/L'},
+    'Nitrates': {'good': (0, 10), 'moderate': (10, 50), 'unit': 'mg/L'},
+    'Fecal_Coliform': {'good': (0, 100), 'moderate': (100, 1000), 'unit': 'MPN/100ml'},
+    'Temperature': {'good': (15, 25), 'moderate': (10, 30), 'unit': '°C'},
+    'WQI': {'good': (76, 100), 'moderate': (51, 75), 'unit': 'Index'},
+    'Conductivity': {'good': (0, 400), 'moderate': (400, 800), 'unit': 'μS/cm'},
+    'Ammonia': {'good': (0, 0.5), 'moderate': (0.5, 2.0), 'unit': 'mg/L'},
+    'Phosphates': {'good': (0, 0.1), 'moderate': (0.1, 0.5), 'unit': 'mg/L'},
+    'Chlorides': {'good': (0, 250), 'moderate': (250, 600), 'unit': 'mg/L'},
+    'Hardness': {'good': (0, 150), 'moderate': (150, 300), 'unit': 'mg/L'},
+    'Alkalinity': {'good': (50, 200), 'moderate': (200, 400), 'unit': 'mg/L'}
+}
+
+def get_parameter_condition(param_name, value):
+    """Determine the condition (Good, Moderate, Bad) for a parameter value"""
+    if param_name not in PARAMETER_THRESHOLDS:
+        return 'Unknown', '#6b7280'
+    
+    thresholds = PARAMETER_THRESHOLDS[param_name]
+    good_range = thresholds['good']
+    moderate_range = thresholds['moderate']
+    
+    # Check if value is in good range
+    if good_range[0] <= value <= good_range[1]:
+        return 'Good', '#10b981'
+    # Check if value is in moderate range
+    elif moderate_range[0] <= value <= moderate_range[1]:
+        return 'Moderate', '#f59e0b'
+    else:
+        return 'Bad', '#ef4444'
+
+def create_condition_chart(param_name, predicted_values, dates):
+    """Create a condition chart showing Good/Moderate/Bad for predicted values"""
+    conditions = []
+    colors = []
+    
+    for value in predicted_values:
+        condition, color = get_parameter_condition(param_name, value)
+        conditions.append(condition)
+        colors.append(color)
+    
+    # Create bar chart
+    fig = go.Figure(data=[
+        go.Bar(
+            x=[d.strftime('%Y-%m-%d') for d in dates],
+            y=predicted_values,
+            marker_color=colors,
+            text=[f'{cond}<br>{val:.2f}' for cond, val in zip(conditions, predicted_values)],
+            textposition='auto',
+            hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> %{y:.2f}<br><b>Condition:</b> %{text}<extra></extra>'
+        )
+    ])
+    
+    fig.update_layout(
+        title=f'{param_name} - 5-Day Condition Forecast',
+        xaxis_title='Date',
+        yaxis_title=f'{param_name} ({PARAMETER_THRESHOLDS.get(param_name, {}).get("unit", "")})',
+        plot_bgcolor='rgba(240, 249, 255, 0.8)',
+        paper_bgcolor='white',
+        font=dict(size=12),
+        height=400
+    )
+    
+    return fig
+
+def create_all_parameters_condition_overview(pred_df, future_dates):
+    """Create an overview chart showing conditions for all parameters across all days"""
+    all_conditions = []
+    
+    for param in pred_df.columns:
+        for i, (date, value) in enumerate(zip(future_dates, pred_df[param].values)):
+            condition, _ = get_parameter_condition(param, value)
+            all_conditions.append({
+                'Parameter': param,
+                'Date': date.strftime('%Y-%m-%d'),
+                'Day': f'Day {i+1}',
+                'Value': value,
+                'Condition': condition
+            })
+    
+    conditions_df = pd.DataFrame(all_conditions)
+    
+    # Create a heatmap-style visualization
+    fig = px.scatter(
+        conditions_df, 
+        x='Day', 
+        y='Parameter',
+        color='Condition',
+        size='Value',
+        color_discrete_map={'Good': '#10b981', 'Moderate': '#f59e0b', 'Bad': '#ef4444'},
+        title='Water Quality Conditions - All Parameters (5-Day Forecast)',
+        hover_data=['Value', 'Date']
+    )
+    
+    fig.update_layout(
+        plot_bgcolor='rgba(240, 249, 255, 0.8)',
+        paper_bgcolor='white',
+        height=max(400, len(pred_df.columns) * 40),
+        font=dict(size=12)
+    )
+    
+    return fig
+
+def create_condition_summary_table(pred_df, future_dates):
+    """Create a summary table showing conditions for all parameters"""
+    summary_data = []
+    
+    for param in pred_df.columns:
+        param_conditions = []
+        param_values = []
+        
+        for value in pred_df[param].values:
+            condition, _ = get_parameter_condition(param, value)
+            param_conditions.append(condition)
+            param_values.append(value)
+        
+        # Count conditions
+        good_count = param_conditions.count('Good')
+        moderate_count = param_conditions.count('Moderate')
+        bad_count = param_conditions.count('Bad')
+        
+        summary_data.append({
+            'Parameter': param,
+            'Good Days': good_count,
+            'Moderate Days': moderate_count,
+            'Bad Days': bad_count,
+            'Avg Value': np.mean(param_values),
+            'Trend': 'Improving' if pred_df[param].iloc[-1] > pred_df[param].iloc[0] else 'Declining'
+        })
+    
+    return pd.DataFrame(summary_data)
 
 # --- GEMINI AI SETUP ---
 @st.cache_resource
 def setup_gemini():
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-pro')
         return model
     except Exception as e:
         st.error(f"Error setting up Gemini AI: {str(e)}")
@@ -240,56 +410,129 @@ try:
                         index=0,
                         help="Choose which water quality parameter to display and analyze")
 
-    # --- VISUALIZATION ---
-    st.subheader('📈 5-Day Prediction Analysis', divider='blue')
-
-    # Create styled plot
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # --- CONDITION CHARTS SECTION ---
+    st.subheader('🚦 Water Quality Condition Analysis', divider='blue')
     
-    # Manual styling to replace seaborn
-    ax.grid(True, linestyle='--', alpha=0.6, color='gray')
-    ax.set_facecolor('#f0f9ff')
-    fig.patch.set_facecolor('white')
+    # Create tabs for different views
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Selected Parameter", "🌐 All Parameters Overview", "📋 Summary Table", "📈 Trend Analysis"])
     
-    # Plot historical data
-    ax.plot(input_window['Date'], input_window[param], 
-           marker='o', 
-           markersize=8,
-           linewidth=2,
-           color='#1e3a8a',
-           label='Historical Data')
-
-    # Plot predictions
-    ax.plot(future_dates, pred_df[param], 
-           marker='o', 
-           markersize=8,
-           linewidth=2,
-           linestyle='--',
-           color='#60a5fa',
-           label='5-Day Forecast')
-
-    # Plot aesthetics
-    ax.set_xlabel('Date', fontsize=12, labelpad=10)
-    ax.set_ylabel(param, fontsize=12, labelpad=10)
-    ax.set_title(f'{param} Trend Analysis', 
-                fontsize=16, 
-                pad=20, 
-                color='#1e3a8a',
-                fontweight='bold')
-    ax.legend(frameon=True, 
-             facecolor='white', 
-             edgecolor='#e5e7eb',
-             fontsize=10)
-    ax.tick_params(axis='both', which='major', labelsize=10)
+    with tab1:
+        st.markdown(f"### {param} - Condition Forecast")
+        
+        # Create condition chart for selected parameter
+        condition_fig = create_condition_chart(param, pred_df[param].values, future_dates)
+        st.plotly_chart(condition_fig, use_container_width=True)
+        
+        # Show individual day conditions
+        st.markdown("#### Daily Condition Breakdown")
+        cols = st.columns(5)
+        for i, (date, value) in enumerate(zip(future_dates, pred_df[param].values)):
+            condition, color = get_parameter_condition(param, value)
+            with cols[i]:
+                st.markdown(f"""
+                <div style="text-align: center; padding: 10px; border-radius: 10px; background: {color}; color: white; margin: 5px;">
+                    <strong>Day {i+1}</strong><br>
+                    {date.strftime('%m/%d')}<br>
+                    <strong>{condition}</strong><br>
+                    {value:.2f}
+                </div>
+                """, unsafe_allow_html=True)
     
-    # Improve date formatting
-    fig.autofmt_xdate()
+    with tab2:
+        st.markdown("### All Parameters - Condition Overview")
+        
+        # Create overview chart
+        overview_fig = create_all_parameters_condition_overview(pred_df, future_dates)
+        st.plotly_chart(overview_fig, use_container_width=True)
+        
+        # Legend
+        st.markdown("""
+        **Legend:**
+        - 🟢 **Good**: Parameter values are within optimal range for safe water
+        - 🟡 **Moderate**: Parameter values need attention but are acceptable
+        - 🔴 **Bad**: Parameter values exceed safe limits and require immediate action
+        """)
     
-    # Add some padding to the plot
-    plt.tight_layout()
+    with tab3:
+        st.markdown("### Condition Summary Table")
+        
+        # Create and display summary table
+        summary_df = create_condition_summary_table(pred_df, future_dates)
+        
+        # Style the dataframe
+        styled_summary = summary_df.style.format({
+            'Avg Value': '{:.2f}',
+            'Good Days': '{:.0f}',
+            'Moderate Days': '{:.0f}',
+            'Bad Days': '{:.0f}'
+        }).background_gradient(subset=['Good Days'], cmap='Greens')\
+          .background_gradient(subset=['Moderate Days'], cmap='Oranges')\
+          .background_gradient(subset=['Bad Days'], cmap='Reds')
+        
+        st.dataframe(styled_summary, use_container_width=True)
+        
+        # Quick statistics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            total_good = summary_df['Good Days'].sum()
+            st.metric("Total Good Conditions", f"{total_good}")
+        with col2:
+            total_moderate = summary_df['Moderate Days'].sum()
+            st.metric("Total Moderate Conditions", f"{total_moderate}")
+        with col3:
+            total_bad = summary_df['Bad Days'].sum()
+            st.metric("Total Bad Conditions", f"{total_bad}")
+    
+    with tab4:
+        st.markdown("### Traditional Trend Analysis")
+        
+        # Create styled plot
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        # Manual styling to replace seaborn
+        ax.grid(True, linestyle='--', alpha=0.6, color='gray')
+        ax.set_facecolor('#f0f9ff')
+        fig.patch.set_facecolor('white')
+        
+        # Plot historical data
+        ax.plot(input_window['Date'], input_window[param], 
+               marker='o', 
+               markersize=8,
+               linewidth=2,
+               color='#1e3a8a',
+               label='Historical Data')
 
-    # Display plot
-    st.pyplot(fig)
+        # Plot predictions
+        ax.plot(future_dates, pred_df[param], 
+               marker='o', 
+               markersize=8,
+               linewidth=2,
+               linestyle='--',
+               color='#60a5fa',
+               label='5-Day Forecast')
+
+        # Plot aesthetics
+        ax.set_xlabel('Date', fontsize=12, labelpad=10)
+        ax.set_ylabel(param, fontsize=12, labelpad=10)
+        ax.set_title(f'{param} Trend Analysis', 
+                    fontsize=16, 
+                    pad=20, 
+                    color='#1e3a8a',
+                    fontweight='bold')
+        ax.legend(frameon=True, 
+                 facecolor='white', 
+                 edgecolor='#e5e7eb',
+                 fontsize=10)
+        ax.tick_params(axis='both', which='major', labelsize=10)
+        
+        # Improve date formatting
+        fig.autofmt_xdate()
+        
+        # Add some padding to the plot
+        plt.tight_layout()
+
+        # Display plot
+        st.pyplot(fig)
 
     # --- AI INSIGHTS SECTION ---
     st.subheader('🤖 AI-Powered Water Quality Insights', divider='blue')
