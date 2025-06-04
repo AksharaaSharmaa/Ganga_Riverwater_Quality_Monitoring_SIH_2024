@@ -93,47 +93,101 @@ PRED_LEN = 5
 MODEL_PATH = 'bhagalpur_final_water_quality_forecasting_model.h5'
 DATA_PATH = 'Bhagalpur.csv'
 
-# Gemini API Key (Replace with your actual API key)
-GEMINI_API_KEY = "your_gemini_api_key_here"  # Replace this with your actual Gemini API key
+# Updated Gemini API Key
+GEMINI_API_KEY = "AIzaSyAldo6EIJngpc9TRS58sk3JOCC5ib4E858"
 
-# --- WATER QUALITY PARAMETER THRESHOLDS ---
-# Define standard thresholds for common water quality parameters
+# --- UPDATED WATER QUALITY PARAMETER THRESHOLDS ---
+# Updated to match your actual parameter names
 PARAMETER_THRESHOLDS = {
     'pH': {'good': (6.5, 8.5), 'moderate': (6.0, 9.0), 'unit': 'pH units'},
-    'DO': {'good': (6, 20), 'moderate': (4, 6), 'unit': 'mg/L'},
-    'BOD': {'good': (0, 3), 'moderate': (3, 6), 'unit': 'mg/L'},
-    'COD': {'good': (0, 10), 'moderate': (10, 20), 'unit': 'mg/L'},
-    'Turbidity': {'good': (0, 5), 'moderate': (5, 25), 'unit': 'NTU'},
-    'TDS': {'good': (0, 500), 'moderate': (500, 1000), 'unit': 'mg/L'},
-    'Nitrates': {'good': (0, 10), 'moderate': (10, 50), 'unit': 'mg/L'},
-    'Fecal_Coliform': {'good': (0, 100), 'moderate': (100, 1000), 'unit': 'MPN/100ml'},
+    'Dissolved Oxygen': {'good': (6, 20), 'moderate': (4, 6), 'unit': 'mg/L'},
+    'Biochemical Oxygen Demand': {'good': (0, 3), 'moderate': (3, 6), 'unit': 'mg/L'},
     'Temperature': {'good': (15, 25), 'moderate': (10, 30), 'unit': '°C'},
+    'Turbidity': {'good': (0, 5), 'moderate': (5, 25), 'unit': 'NTU'},
+    'Nitrate': {'good': (0, 10), 'moderate': (10, 50), 'unit': 'mg/L'},
+    'Fecal Coliform': {'good': (0, 100), 'moderate': (100, 1000), 'unit': 'MPN/100ml'},
+    'Fecal Streptococci': {'good': (0, 50), 'moderate': (50, 200), 'unit': 'MPN/100ml'},
+    'Total Coliform': {'good': (0, 100), 'moderate': (100, 500), 'unit': 'MPN/100ml'},
     'WQI': {'good': (76, 100), 'moderate': (51, 75), 'unit': 'Index'},
     'Conductivity': {'good': (0, 400), 'moderate': (400, 800), 'unit': 'μS/cm'},
-    'Ammonia': {'good': (0, 0.5), 'moderate': (0.5, 2.0), 'unit': 'mg/L'},
-    'Phosphates': {'good': (0, 0.1), 'moderate': (0.1, 0.5), 'unit': 'mg/L'},
-    'Chlorides': {'good': (0, 250), 'moderate': (250, 600), 'unit': 'mg/L'},
-    'Hardness': {'good': (0, 150), 'moderate': (150, 300), 'unit': 'mg/L'},
-    'Alkalinity': {'good': (50, 200), 'moderate': (200, 400), 'unit': 'mg/L'}
+    'Rainfall': {'good': (0, 100), 'moderate': (100, 200), 'unit': 'mm'},
+    
+    # Alternative naming conventions (in case of slight variations)
+    'DO': {'good': (6, 20), 'moderate': (4, 6), 'unit': 'mg/L'},
+    'BOD': {'good': (0, 3), 'moderate': (3, 6), 'unit': 'mg/L'},
+    'FC': {'good': (0, 100), 'moderate': (100, 1000), 'unit': 'MPN/100ml'},
+    'FS': {'good': (0, 50), 'moderate': (50, 200), 'unit': 'MPN/100ml'},
+    'TC': {'good': (0, 100), 'moderate': (100, 500), 'unit': 'MPN/100ml'},
+    'NO3': {'good': (0, 10), 'moderate': (10, 50), 'unit': 'mg/L'},
+    'Temp': {'good': (15, 25), 'moderate': (10, 30), 'unit': '°C'},
+    'Cond': {'good': (0, 400), 'moderate': (400, 800), 'unit': 'μS/cm'},
+    'Quality': {'good': (3, 4), 'moderate': (2, 3), 'unit': 'Category'}
 }
 
 def get_parameter_condition(param_name, value):
     """Determine the condition (Good, Moderate, Bad) for a parameter value"""
-    if param_name not in PARAMETER_THRESHOLDS:
+    # Handle NaN values
+    if pd.isna(value) or np.isnan(value):
         return 'Unknown', '#6b7280'
     
-    thresholds = PARAMETER_THRESHOLDS[param_name]
+    # Try exact match first
+    if param_name in PARAMETER_THRESHOLDS:
+        thresholds = PARAMETER_THRESHOLDS[param_name]
+    else:
+        # Try partial matching for common abbreviations
+        matched_key = None
+        param_lower = param_name.lower()
+        
+        # Common mappings
+        mapping = {
+            'dissolved oxygen': 'Dissolved Oxygen',
+            'biochemical oxygen demand': 'Biochemical Oxygen Demand',
+            'fecal coliform': 'Fecal Coliform',
+            'fecal streptococci': 'Fecal Streptococci',
+            'total coliform': 'Total Coliform',
+            'conductivity': 'Conductivity',
+            'temperature': 'Temperature',
+            'turbidity': 'Turbidity',
+            'nitrate': 'Nitrate',
+            'rainfall': 'Rainfall',
+            'wqi': 'WQI',
+            'quality': 'Quality'
+        }
+        
+        # Check if parameter name contains any of the mapping keys
+        for key, standard_name in mapping.items():
+            if key in param_lower or param_lower in key:
+                if standard_name in PARAMETER_THRESHOLDS:
+                    matched_key = standard_name
+                    break
+        
+        if matched_key:
+            thresholds = PARAMETER_THRESHOLDS[matched_key]
+        else:
+            # Default thresholds for unknown parameters
+            # Assume lower is better for most water quality parameters
+            return 'Requires Assessment', '#6b7280'
+    
     good_range = thresholds['good']
     moderate_range = thresholds['moderate']
     
-    # Check if value is in good range
-    if good_range[0] <= value <= good_range[1]:
-        return 'Good', '#10b981'
-    # Check if value is in moderate range
-    elif moderate_range[0] <= value <= moderate_range[1]:
-        return 'Moderate', '#f59e0b'
+    # Special handling for parameters where higher is better (like DO, WQI)
+    if param_name in ['Dissolved Oxygen', 'DO', 'WQI', 'Quality']:
+        # For these parameters, higher values are better
+        if good_range[0] <= value <= good_range[1]:
+            return 'Good', '#10b981'
+        elif moderate_range[0] <= value <= moderate_range[1]:
+            return 'Moderate', '#f59e0b'
+        else:
+            return 'Bad', '#ef4444'
     else:
-        return 'Bad', '#ef4444'
+        # For most parameters, lower values are better
+        if good_range[0] <= value <= good_range[1]:
+            return 'Good', '#10b981'
+        elif moderate_range[0] <= value <= moderate_range[1]:
+            return 'Moderate', '#f59e0b'
+        else:
+            return 'Bad', '#ef4444'
 
 def create_condition_chart(param_name, predicted_values, dates):
     """Create a condition chart showing Good/Moderate/Bad for predicted values"""
@@ -177,12 +231,12 @@ def create_all_parameters_condition_overview(pred_df, future_dates):
         for i, (date, value) in enumerate(zip(future_dates, pred_df[param].values)):
             condition, _ = get_parameter_condition(param, value)
             # Normalize size values to be positive (add offset and scale)
-            normalized_size = abs(value) + 1  # Ensure positive values
+            normalized_size = abs(float(value)) + 1 if not pd.isna(value) else 1
             all_conditions.append({
                 'Parameter': param,
                 'Date': date.strftime('%Y-%m-%d'),
                 'Day': f'Day {i+1}',
-                'Value': value,
+                'Value': float(value) if not pd.isna(value) else 0,
                 'Size': normalized_size,
                 'Condition': condition
             })
@@ -196,7 +250,12 @@ def create_all_parameters_condition_overview(pred_df, future_dates):
         y='Parameter',
         color='Condition',
         size='Size',
-        color_discrete_map={'Good': '#10b981', 'Moderate': '#f59e0b', 'Bad': '#ef4444'},
+        color_discrete_map={
+            'Good': '#10b981', 
+            'Moderate': '#f59e0b', 
+            'Bad': '#ef4444',
+            'Requires Assessment': '#6b7280'
+        },
         title='Water Quality Conditions - All Parameters (5-Day Forecast)',
         hover_data=['Value', 'Date'],
         size_max=20
@@ -220,23 +279,27 @@ def create_condition_summary_table(pred_df, future_dates):
         param_values = []
         
         for value in pred_df[param].values:
-            condition, _ = get_parameter_condition(param, value)
-            param_conditions.append(condition)
-            param_values.append(value)
+            if not pd.isna(value):
+                condition, _ = get_parameter_condition(param, value)
+                param_conditions.append(condition)
+                param_values.append(float(value))
         
-        # Count conditions
-        good_count = param_conditions.count('Good')
-        moderate_count = param_conditions.count('Moderate')
-        bad_count = param_conditions.count('Bad')
-        
-        summary_data.append({
-            'Parameter': param,
-            'Good Days': good_count,
-            'Moderate Days': moderate_count,
-            'Bad Days': bad_count,
-            'Avg Value': np.mean(param_values),
-            'Trend': 'Improving' if pred_df[param].iloc[-1] > pred_df[param].iloc[0] else 'Declining'
-        })
+        if param_values:  # Only process if we have valid values
+            # Count conditions
+            good_count = param_conditions.count('Good')
+            moderate_count = param_conditions.count('Moderate')
+            bad_count = param_conditions.count('Bad')
+            assessment_count = param_conditions.count('Requires Assessment')
+            
+            summary_data.append({
+                'Parameter': param,
+                'Good Days': good_count,
+                'Moderate Days': moderate_count,
+                'Bad Days': bad_count,
+                'Assessment Days': assessment_count,
+                'Avg Value': np.mean(param_values),
+                'Trend': 'Improving' if param_values[-1] > param_values[0] else 'Declining' if len(param_values) > 1 else 'Stable'
+            })
     
     return pd.DataFrame(summary_data)
 
@@ -332,10 +395,10 @@ def load_data():
         df = pd.read_csv(DATA_PATH, parse_dates=['Date'], dayfirst=True)
         df = df.sort_values('Date').reset_index(drop=True)
         
-        # Check if 'Quality' column exists before dropping
-        if 'Quality' in df.columns:
-            df = df.drop(columns=['Quality'])
+        # Clean column names (remove extra spaces, standardize naming)
+        df.columns = df.columns.str.strip()
         
+        # Don't drop Quality column as it might be useful for analysis
         df = df.interpolate(method='linear').bfill().ffill()
         return df
     except Exception as e:
@@ -345,38 +408,61 @@ def load_data():
 @st.cache_resource
 def get_scaler(df):
     scaler = MinMaxScaler()
-    scaler.fit(df.drop(columns=['Date']))
-    return scaler
+    # Only fit on numeric columns, excluding Date
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    scaler.fit(df[numeric_columns])
+    return scaler, numeric_columns
 
 # --- STREAMLIT APP LAYOUT ---
-st.markdown("<h1>Bhagalpur Water Quality Forecasting</h1>", unsafe_allow_html=True)
+st.markdown("<h1>🌊 Bhagalpur Water Quality Forecasting</h1>", unsafe_allow_html=True)
 
 try:
     # Load data and model
     df = load_data()
-    scaler = get_scaler(df)
+    scaler, numeric_columns = get_scaler(df)
     model = load_model()
+    
+    # Display available parameters
+    st.sidebar.markdown("### Available Parameters")
+    for col in numeric_columns:
+        st.sidebar.write(f"• {col}")
     
     # --- WQI DISPLAY ---
     with st.container():
-        col1, col2 = st.columns([1, 3])
+        col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
             st.subheader("Current WQI")
-            # Check if WQI column exists, otherwise use the first numeric column
-            wqi_columns = [col for col in df.columns if 'WQI' in col.upper()]
+            # Check if WQI column exists
+            wqi_columns = [col for col in df.columns if 'WQI' in str(col).upper()]
             if wqi_columns:
                 current_wqi = df.iloc[-1][wqi_columns[0]]
-                st.metric(label="", value=f"{current_wqi:.2f}", 
+                wqi_condition, _ = get_parameter_condition('WQI', current_wqi)
+                st.metric(label="Water Quality Index", value=f"{current_wqi:.2f}", 
                          help="Latest Water Quality Index measurement")
+                st.markdown(f"**Status:** {wqi_condition}")
             else:
-                # Use the first numeric column if WQI is not found
-                numeric_cols = df.select_dtypes(include=[np.number]).columns
-                if len(numeric_cols) > 0:
-                    current_value = df.iloc[-1][numeric_cols[0]]
-                    st.metric(label=numeric_cols[0], value=f"{current_value:.2f}", 
-                             help=f"Latest {numeric_cols[0]} measurement")
+                st.info("WQI column not found in dataset")
+        
         with col2:
-            st.write("")  # Spacer
+            st.subheader("Data Summary")
+            st.metric("Total Parameters", len(numeric_columns))
+            st.metric("Latest Date", df['Date'].iloc[-1].strftime('%Y-%m-%d'))
+        
+        with col3:
+            st.subheader("Parameter Coverage")
+            # Show which parameters have thresholds defined
+            covered_params = []
+            uncovered_params = []
+            
+            for param in numeric_columns:
+                if param in PARAMETER_THRESHOLDS or any(key.lower() in param.lower() for key in PARAMETER_THRESHOLDS.keys()):
+                    covered_params.append(param)
+                else:
+                    uncovered_params.append(param)
+            
+            st.write(f"✅ **Covered Parameters ({len(covered_params)}):** {', '.join(covered_params[:3])}{'...' if len(covered_params) > 3 else ''}")
+            if uncovered_params:
+                st.write(f"⚠️ **Needs Assessment ({len(uncovered_params)}):** {', '.join(uncovered_params[:2])}{'...' if len(uncovered_params) > 2 else ''}")
 
     # --- MAIN APP SECTION ---
     with st.container():
@@ -393,7 +479,7 @@ try:
             st.stop()
 
     # --- MODEL PREDICTION ---
-    X_input = scaler.transform(input_window.drop(columns=['Date']).values)
+    X_input = scaler.transform(input_window[numeric_columns].values)
     X_input = X_input.reshape(1, SEQ_LEN, -1)
 
     prediction = model.predict(X_input)
@@ -405,7 +491,7 @@ try:
                                 periods=PRED_LEN, 
                                 freq='D')
     pred_df = pd.DataFrame(prediction_orig, 
-                          columns=input_window.columns[1:], 
+                          columns=numeric_columns, 
                           index=future_dates)
 
     # --- PARAMETER SELECTION ---
@@ -413,6 +499,10 @@ try:
                         pred_df.columns,
                         index=0,
                         help="Choose which water quality parameter to display and analyze")
+
+    # Show parameter info
+    condition, _ = get_parameter_condition(param, pred_df[param].iloc[0])
+    st.info(f"**{param}** - First prediction condition: **{condition}**")
 
     # --- CONDITION CHARTS SECTION ---
     st.subheader('🚦 Water Quality Condition Analysis', divider='blue')
@@ -455,6 +545,7 @@ try:
         - 🟢 **Good**: Parameter values are within optimal range for safe water
         - 🟡 **Moderate**: Parameter values need attention but are acceptable
         - 🔴 **Bad**: Parameter values exceed safe limits and require immediate action
+        - ⚪ **Requires Assessment**: Parameter needs expert evaluation (thresholds not defined)
         """)
     
     with tab3:
@@ -463,29 +554,36 @@ try:
         # Create and display summary table
         summary_df = create_condition_summary_table(pred_df, future_dates)
         
-        # Style the dataframe
-        styled_summary = summary_df.style.format({
-            'Avg Value': '{:.2f}',
-            'Good Days': '{:.0f}',
-            'Moderate Days': '{:.0f}',
-            'Bad Days': '{:.0f}'
-        }).background_gradient(subset=['Good Days'], cmap='Greens')\
-          .background_gradient(subset=['Moderate Days'], cmap='Oranges')\
-          .background_gradient(subset=['Bad Days'], cmap='Reds')
-        
-        st.dataframe(styled_summary, use_container_width=True)
-        
-        # Quick statistics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            total_good = summary_df['Good Days'].sum()
-            st.metric("Total Good Conditions", f"{total_good}")
-        with col2:
-            total_moderate = summary_df['Moderate Days'].sum()
-            st.metric("Total Moderate Conditions", f"{total_moderate}")
-        with col3:
-            total_bad = summary_df['Bad Days'].sum()
-            st.metric("Total Bad Conditions", f"{total_bad}")
+        if not summary_df.empty:
+            # Style the dataframe
+            styled_summary = summary_df.style.format({
+                'Avg Value': '{:.2f}',
+                'Good Days': '{:.0f}',
+                'Moderate Days': '{:.0f}',
+                'Bad Days': '{:.0f}',
+                'Assessment Days': '{:.0f}'
+            }).background_gradient(subset=['Good Days'], cmap='Greens')\
+              .background_gradient(subset=['Moderate Days'], cmap='Oranges')\
+              .background_gradient(subset=['Bad Days'], cmap='Reds')
+            
+            st.dataframe(styled_summary, use_container_width=True)
+            
+            # Quick statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                total_good = summary_df['Good Days'].sum()
+                st.metric("Total Good Conditions", f"{int(total_good)}")
+            with col2:
+                total_moderate = summary_df['Moderate Days'].sum()
+                st.metric("Total Moderate Conditions", f"{int(total_moderate)}")
+            with col3:
+                total_bad = summary_df['Bad Days'].sum()
+                st.metric("Total Bad Conditions", f"{int(total_bad)}")
+            with col4:
+                total_assessment = summary_df['Assessment Days'].sum()
+                st.metric("Need Assessment", f"{int(total_assessment)}")
+        else:
+            st.warning("No summary data available")
     
     with tab4:
         st.markdown("### Traditional Trend Analysis")
