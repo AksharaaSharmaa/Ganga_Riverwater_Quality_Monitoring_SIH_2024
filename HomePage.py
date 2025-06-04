@@ -713,18 +713,18 @@ def main():
         st.markdown('<div class="section-header">🎯 Current Water Quality Status</div>', unsafe_allow_html=True)
         
         col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                total_good = summary_df['Good Days'].sum()
-                st.metric("Total Good Conditions", f"{int(total_good)}")
-            with col2:
-                total_moderate = summary_df['Moderate Days'].sum()
-                st.metric("Total Moderate Conditions", f"{int(total_moderate)}")
-            with col3:
-                total_bad = summary_df['Bad Days'].sum()
-                st.metric("Total Bad Conditions", f"{int(total_bad)}")
-            with col4:
-                total_assessment = summary_df['Assessment Days'].sum()
-                st.metric("Need Assessment", f"{int(total_assessment)}")
+        with col1:
+            total_good = summary_df['Good Days'].sum()
+            st.metric("Total Good Conditions", f"{int(total_good)}")
+        with col2:
+            total_moderate = summary_df['Moderate Days'].sum()
+            st.metric("Total Moderate Conditions", f"{int(total_moderate)}")
+        with col3:
+            total_bad = summary_df['Bad Days'].sum()
+            st.metric("Total Bad Conditions", f"{int(total_bad)}")
+        with col4:
+            total_assessment = summary_df['Assessment Days'].sum()
+            st.metric("Need Assessment", f"{int(total_assessment)}")
         else:
             st.warning("No summary data available")
     
