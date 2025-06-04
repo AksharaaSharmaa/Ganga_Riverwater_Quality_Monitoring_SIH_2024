@@ -8,3 +8,4 @@ tensorflow
 scikit-learn
 folium
 streamlit-folium
+google-generativeai
