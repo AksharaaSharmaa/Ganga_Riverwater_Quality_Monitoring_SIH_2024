@@ -41,6 +41,7 @@
 
 The sacred Ganga is not merely a river but the cultural and spiritual heart of India, sustaining hundreds of millions of lives along its banks. Our AI-powered system combines cutting-edge time series forecasting with environmental data science to predict water quality trends, enabling preemptive action against pollution and supporting sustainable management of this precious resource.
 
+Live Link: https://river-monitoring-system-kroxzzux33rz8hdzxq8dgo.streamlit.app/
 ---
 
 ## 🌟 Key Features
